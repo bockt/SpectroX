@@ -3,8 +3,10 @@ Type: Package
 Title: Proteotypic peptide selection and SRM/PRM/HRM panel creation 
 Version: 2.0
 Author: Erik Ahrne
-Maintainer: erik.ahrne@unibas.ch
+Maintainer: Erik Ahrne <erik.ahrne@unibas.ch>
 Description: Select proteptypic peptides based on full proteom analysis MaxQuant 1.6 search results or create SRM/PRM/HRM panel/library from  MaxQuant 1.6 search results.
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
+Suggests: testthat
+RoxygenNote: 6.0.1
