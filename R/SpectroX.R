@@ -41,14 +41,15 @@ IRTPEPTIDES <- data.frame(refIRT = sort(c(0.00,0.00
 
 #' Parse MaxQuant msms.txt
 #' @param file path
-#' @param pepThrs numeric default 0.05
+#' @param pepCutoff numeric default 0.05
 #' @param targetPeptides character default NA
 #' @param targetProteins character default NA
 #' @param filterContaminants TRUE
 #' @param contaminantRegExp '^CON_'
 #' @param selectedPTMRegExp NA
 #' @param filterNonExclusivePeptides default TRUE
-#' @param chargeState default [1,10]
+#' @param minPepLength default 0 minimum peptide length
+#' @param chargeState default [1,Inf)
 #' @param label (Arg10 and Lys8 only filter) options NA (deafault,no filter),  'light','heavy'
 #' @param keepBestSpectrumOnly  keep top-scoring spectrum only, per peptidoform, default TRUE
 #' @param requiredSequenceRegExp dafualt '.' (no filter)
@@ -59,25 +60,27 @@ IRTPEPTIDES <- data.frame(refIRT = sort(c(0.00,0.00
 #' @references NA
 #' @examples print("No examples")
 parseMaxQuantMSMS = function(file
-                             , pepThrs=0.05
+                             , pepCutoff=0.05
                              , targetPeptides=NA
                              , targetProteins=NA
                              , filterContaminants = T
                              , contaminantRegExp = '^CON_'
                              , selectedPTMRegExp = NA
                              , filterNonExclusivePeptides = T
-                             , chargeState = 1:10
+                             , minPepLength = 0
+                             , chargeState = c(1,Inf)
                              , label = NA
                              , maxMissedCleavages = 0
                              , keepBestSpectrumOnly = T
-                             ,requiredPepSeqRegExp = "."
+                             , requiredPepSeqRegExp = "."
+                             ,...
 
 ){
 
   tb = suppressMessages(read_tsv(file))
 
-  # is irt peptide
-  tb$isIRT = paste(IRTPEPTIDES %>% rownames , collapse="|") %>% grepl(.,tb$`Modified sequence`)
+  # is irt peptide (unmodified)
+  tb$isIRT = paste0("_",rownames(IRTPEPTIDES),"_" , collapse="|") %>% grepl(.,tb$`Modified sequence`)
 
   # target peptide filter
   if(!is.na(targetPeptides[1])){
@@ -103,16 +106,19 @@ parseMaxQuantMSMS = function(file
     targetRegex = paste(targetProteins,collapse = "|")
     keep = keep & grepl(targetRegex , tb$Proteins)
   }
+
   # CON filter
   if(filterContaminants) keep = keep & !grepl("CON\\_",tb$Proteins)
   # pep thrs
-  keep = keep & (tb$PEP <  pepThrs)
+  keep = keep & (tb$PEP <  pepCutoff)
   # decoy filter
   keep = keep & (is.na(tb$Reverse) | tb$Reverse != "+" )
   # min peptide length
-  # keep = keep &  nchar(tb$Sequence) > minPepLength
+  keep = keep &  tb$Length >= minPepLength
+
+
   # keep charge state
-  keep = keep &  (tb$Charge %in% chargeState)
+  keep = keep &  ((tb$Charge >= min(chargeState)) & (tb$Charge <= max(chargeState)) )
   # keep modifs
   #selectedPTMRegExp = "Oxidation"
   # if(!is.na(selectedPTMRegExp)){
@@ -122,12 +128,12 @@ parseMaxQuantMSMS = function(file
   # }
 
   # get all modifications seached for
-  excludedPTM = getSearchedModifications(tb)
-  cat("INFO: allowed PTMs:", ifelse(is.na(excludedPTM[grepl(selectedPTMRegExp,excludedPTM)]),"None", paste(excludedPTM[grepl(selectedPTMRegExp,excludedPTM)],collapse=":")  ),"\n")
+  excludedPTM = getSearchedModifications(tb,...)
+  cat("INFO: allowed PTMs:", ifelse(is.na(excludedPTM[grepl(selectedPTMRegExp,excludedPTM)][1]),"None", paste(excludedPTM[grepl(selectedPTMRegExp,excludedPTM)],collapse=":")),"\n")
   # e.g. "Oxidation (M)". Is "Oxidation (M)" allowed. Check if it matches regexp
   if(!is.na(selectedPTMRegExp)) excludedPTM = excludedPTM[!grepl(selectedPTMRegExp,excludedPTM)]
 
-  # if excludedPTM vector contains any mods. only keep peptides not affected by these ptms
+    # if excludedPTM vector contains any mods. only keep peptides not affected by these ptms
   if(length(excludedPTM) > 0) keep =  keep & rowSums(tb[excludedPTM]) == 0
 
   # light heavy filter
@@ -144,8 +150,8 @@ parseMaxQuantMSMS = function(file
   keep =  keep & tb$`Missed cleavages` <= maxMissedCleavages
 
   # DO NOT discard irts
-  #keep = keep | ((paste(IRTPEPTIDES, collapse="|") %>% grepl(.,tb$`Modified sequence`)) &  (tb$PEP <  pepThrs))
-  keep = keep | (tb$isIRT & (tb$PEP <  pepThrs))
+  #keep = keep | ((paste(IRTPEPTIDES, collapse="|") %>% grepl(.,tb$`Modified sequence`)) &  (tb$PEP <  pepCutoff))
+  keep = keep | (tb$isIRT & (tb$PEP <  pepCutoff))
 
   # apply filter
   tb = subset(tb, keep)
@@ -163,17 +169,18 @@ parseMaxQuantMSMS = function(file
 
 #' Get list of variable modifiections condsidered by MaxQuant
 #' @param df tible or data.frame
+#' @param ignoreArgLysIsoLabel default T Do not consider Arg Lys C,N heavy isotope label
 #' @return character vector of modification names (does not return "Arg10","Lys8" labels )
 #' @export
 #' @note  No note
 #' @details No details
 #' @references NA
 #' @examples print("No examples")
-getSearchedModifications = function(tb){
+getSearchedModifications = function(tb, ignoreArgLysIsoLabel=T){
 
   mods = names(tb)[grepl("Probabilities$",names(tb))] %>% gsub(" Probabilities$","",.)
   # remove "Arg10"         "Lys8"
-  mods = mods[!(mods %in% c("Arg10","Lys8"))]
+  if(ignoreArgLysIsoLabel) mods = mods[!(mods %in% c("Arg10","Lys8"))]
   return(mods)
 }
 
@@ -185,7 +192,7 @@ getSearchedModifications = function(tb){
 #' @details No details
 #' @references NA
 #' @examples print("No examples")
-createAnnotatedSpectrum <- function(psm){
+createLibrarySpectrum <- function(psm){
 
   ionAnnot <- unlist(strsplit(as.character(psm$Matches), ";"))
   ionType <- substr(ionAnnot,1,1)
@@ -236,8 +243,13 @@ createAnnotatedSpectrum <- function(psm){
                         , iRT = suppressWarnings(ifelse(is.null(psm$iRT),NA,psm$iRT))
                         , precCharge = as.numeric(psm$Charge)
                         , protein = as.character(psm$Proteins)
+                        , proteinDescription =psm$`Protein Names`
                         , peptide = as.character(psm$Sequence)
-                        , mqResIdx = rownames(psm)
+                        , ptm = psm$Modifications
+                        , mqResIdx = psm$`Scan number`
+                        , isIRT = psm$isIRT
+
+
                         )
   return(spectrum)
 }
@@ -358,25 +370,25 @@ getFragmentSequence <- function(peptide=peptide,ionType=ionType,fragmentNb=fragm
 #'  }
 #' @references NA
 #' @examples print("No examples")
-getLabelMzShift <- function(aaSeq, charge=1,isHeavy=T){
-
-  mzShift = 0
-  kShift <- 8.014199
-  rShift <- 10.008269
-
-  ### ONLY LABELLED AT THE C-TERMINI
-  mzShift <- 0
-  if(grepl("K$" ,aaSeq)){
-    mzShift <- kShift / charge
-  }else if(grepl("R$" ,aaSeq)){
-    mzShift <- rShift / charge
-  }
-
-  if(isHeavy){
-    return(-mzShift)
-  }
-  return(mzShift)
-}
+# getLabelMzShift <- function(aaSeq, charge=1,isHeavy=T){
+#
+#   mzShift = 0
+#   kShift <- 8.014199
+#   rShift <- 10.008269
+#
+#   ### ONLY LABELLED AT THE C-TERMINI
+#   mzShift <- 0
+#   if(grepl("K$" ,aaSeq)){
+#     mzShift <- kShift / charge
+#   }else if(grepl("R$" ,aaSeq)){
+#     mzShift <- rShift / charge
+#   }
+#
+#   if(isHeavy){
+#     return(-mzShift)
+#   }
+#   return(mzShift)
+# }
 
 #' Created complimentary Heavy/Light annotated spectrum with updates precursor and fragment m/z values.
 #' @param annotSpectrum Annotated Spectrum object
@@ -386,21 +398,21 @@ getLabelMzShift <- function(aaSeq, charge=1,isHeavy=T){
 #' @details No details
 #' @references NA
 #' @examples print("No examples")
-getComplementaryLabelSpectrum <- function(annotSpectrum){
-
-  # update precursor mz
-  annotSpectrum$precMz <-  annotSpectrum$precMz + getLabelMzShift(aaSeq = annotSpectrum$peptide[1], charge=annotSpectrum$charge[1], isHeavy=annotSpectrum$isHeavy[1])
-
-  # update fragment mz
-  for(i in 1:nrow(annotSpectrum)){
-    aaSeq <- getFragmentSequence(peptide=annotSpectrum$peptide[1]  ,ionType=as.character(annotSpectrum[i,]$ionType),fragmentNb=as.numeric(annotSpectrum[i,]$fragmentNb))
-    annotSpectrum[i,]$mz = annotSpectrum[i,]$mz + getLabelMzShift(aaSeq = aaSeq, charge=as.numeric(annotSpectrum[i,]$charge), isHeavy=annotSpectrum$isHeavy[1])
-
-  }
-  annotSpectrum$isHeavy <- !annotSpectrum$isHeavy
-
-  return(annotSpectrum)
-}
+# getComplementaryLabelSpectrum <- function(annotSpectrum){
+#
+#   # update precursor mz
+#   annotSpectrum$precMz <-  annotSpectrum$precMz + getLabelMzShift(aaSeq = annotSpectrum$peptide[1], charge=annotSpectrum$charge[1], isHeavy=annotSpectrum$isHeavy[1])
+#
+#   # update fragment mz
+#   for(i in 1:nrow(annotSpectrum)){
+#     aaSeq <- getFragmentSequence(peptide=annotSpectrum$peptide[1]  ,ionType=as.character(annotSpectrum[i,]$ionType),fragmentNb=as.numeric(annotSpectrum[i,]$fragmentNb))
+#     annotSpectrum[i,]$mz = annotSpectrum[i,]$mz + getLabelMzShift(aaSeq = aaSeq, charge=as.numeric(annotSpectrum[i,]$charge), isHeavy=annotSpectrum$isHeavy[1])
+#
+#   }
+#   annotSpectrum$isHeavy <- !annotSpectrum$isHeavy
+#
+#   return(annotSpectrum)
+# }
 
 #' Digest protein
 #' @param proteinSeq protein sequence
@@ -448,7 +460,7 @@ getPeptides <- function(proteinSeq,proteaseRegExp="[KR](?!P)",nbMiscleavages=0){
 
 }
 
-#' Get peptide candidates per protein, appying some hardcoded files
+#' Get peptide candidates per protein
 #' @param proteins list
 #' @param dispProgressBar T/F
 #' @param peptideLengthRange integer vector default c(6,21)
@@ -460,7 +472,6 @@ getPeptides <- function(proteinSeq,proteaseRegExp="[KR](?!P)",nbMiscleavages=0){
 #' @export
 #' @note  No note
 #' @references NA
-#' @import Biobase
 #' @examples print("No examples")
 digestProteome = function(proteins, proteaseRegExp="[KR](?!P)",dispProgressBar=T, peptideLengthRange=c(6,21), nbMiscleavages=0, exclusivePeptides=T, trimAC=T  ){
 
@@ -475,8 +486,10 @@ digestProteome = function(proteins, proteaseRegExp="[KR](?!P)",dispProgressBar=T
     prot <- names(proteins)[i]
     ### increment progressbar
     if(dispProgressBar) setTxtProgressBar(pbSum, i)
-    peptides <- getPeptides(unlist(proteins[prot]), proteaseRegExp= proteaseRegExp, nbMiscleavages=nbMiscleavages)
 
+    # digest
+    peptides <- getPeptides(unlist(proteins[prot]), proteaseRegExp= proteaseRegExp, nbMiscleavages=nbMiscleavages)
+    # keep only peptides in accetped length range
     peptides = peptides[nchar(peptides) %in%  peptideLengthRange[1]:peptideLengthRange[2] ]
 
     if(length(peptides) > 0 ){
@@ -504,3 +517,317 @@ digestProteome = function(proteins, proteaseRegExp="[KR](?!P)",dispProgressBar=T
 
 }
 
+
+#'# Export top X peptide per protein (ordered by 'adjustedIntensitySum') and add theoretical peptides ranked by length if fewer than X peptides were identified by MaxQuant
+#' @param spectralLibrary tibble
+#' @param theoPeptides data.frame 'peptide' 'protein' 'length'
+#' @param targetProteins list of protein accesion numbers e.g. P62258. default all proteins in spectralLibrary
+#' @param nbPeptidesPerProtein number of peptides per protein to be exported
+#' @param outFile path to output file defult tmp.xls in tmp dir
+#' @export
+#' @note  No note
+#' @references NA
+#' @examples print("No examples")
+proteotypicPeptideExport = function(spectralLibrary
+                                    ,theoPeptides=NA
+                                    ,targetProteins=unique(spectralLibrary$protein)
+                                    , nbPeptidesPerProtein=5
+                                    , outFile= paste0(tempdir(),"/tmp.xls")){
+
+  # output protein, peptide, adjustedIntensitySum, rank (if multiple charge states pick most intense)
+  xlsOut = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum")]%>%
+    unique %>% group_by(protein,peptide,ptm) %>% top_n(1,adjustedIntensitySum) %>%
+    split(.$protein) %>%
+    map_df(~ data.frame(peptide=.x$peptide
+                        , ptm = .x$ptm
+                        , protein = .x$protein
+                        , adjustedIntensitySum= .x$adjustedIntensitySum
+                        , rank = length(.x$adjustedIntensitySum) - rank(.x$adjustedIntensitySum)+1
+    ))
+
+  # get proteins without enough peptides
+  # nbMissingPeptidesPerProt = subset(xlsOut,rank <= nbPeptidesPerProtein) %>%
+  #   group_by(. ,protein) %>%
+
+  nbMissingPeptidesPerProt = group_by(xlsOut ,protein) %>%
+  summarise(nbMissingPep = nbPeptidesPerProtein - max(rank,na.rm=T)) %>%
+  subset(nbMissingPep > 0) %>% as.data.frame
+  rownames(nbMissingPeptidesPerProt) = nbMissingPeptidesPerProt$protein
+
+  # add proteins with no identified peptides
+  missingProteins =  setdiff(targetProteins, nbMissingPeptidesPerProt$protein)
+  if(sum(!is.na(missingProteins)) > 0 ){
+    nbMissingPeptidesPerProt =rbind(nbMissingPeptidesPerProt
+                                    ,data.frame(protein=missingProteins,nbMissingPep =nbPeptidesPerProtein, row.names=missingProteins)
+    )
+  }
+
+  # add theo peptides
+  for(prot in nbMissingPeptidesPerProt$protein ){
+    # if protein has theo peptides
+    if(prot %in% theoPeptides$protein ){
+      subTP = subset(theoPeptides, protein %in% prot )
+      # order peptides by length
+      subTP = subTP[ order(subTP$length),]
+      # add nbMissingPep peptides
+      sel = 1:min(nbMissingPeptidesPerProt[match(prot, rownames(nbMissingPeptidesPerProt)),]$nbMissingPep, nrow(subTP))
+      xlsOut = rbind(xlsOut, cbind(subTP[sel,c("peptide", "protein")], adjustedIntensitySum=NA,ptm =NA, rank=nbPeptidesPerProtein ) )
+    }
+  }
+
+  #keep all irts
+  write.table(file=outFile,  subset(xlsOut, (rank <= nbPeptidesPerProtein) |  grepl("Biognosys",protein) ) %>% arrange(.,protein,rank) ,row.names=F,sep = "\t")
+  cat("CREATED proteotypicPeptideExport FILE: ", outFile,"\n")
+
+}
+
+
+#' plot adj. intensity vs peptide (per protein) barplot
+#' @param df data.frame
+#' @param ptmRegExp default NA, higliht modified peptides in red (do not highlight labels)
+#' @param pepLenTrunc integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
+#' @param pepLabCex default 0.7
+#' @export
+#' @note  No note
+#' @references NA
+#' @examples print("No examples")
+barplotPeptidesPerProtein = function(df, ptmRegExp=NA,pepLenTrunc=12,pepLabCex=0.7,...){
+
+  # display modified peptide in red
+  col = "blue"
+  if(!is.na(ptmRegExp)) col = c("blue","red")[grepl(ptmRegExp,df$ptm)+1]
+
+  # avoid log(0) issue
+  df$adjustedIntensitySum = df$adjustedIntensitySum +1
+
+
+  # order by intensity decreasing L-R
+  df = arrange(df,-adjustedIntensitySum)
+  bp =  barplot(df$adjustedIntensitySum %>% log10
+                , main = df$protein[1]
+                , xaxt = "n"
+                , ylab="Adj. Fragment Int. Sum\n log10"
+                ,col=col
+                ,...
+  )
+
+  # truncate labels AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
+  df$peptide %<>% as.character
+  sel = nchar( df$peptide) > pepLenTrunc
+  df$peptide[sel] = paste0(substr( df$peptide,1,pepLenTrunc), sep="..")[sel ]
+  df$peptide = paste0(df$peptide,"/",df$precCharge)
+  ### 35 degree labels
+  axis(1, labels = FALSE,tick=F)
+  text(bp , par("usr")[3], srt=35, adj = 1.1,
+       labels =df$peptide, xpd = TRUE ,cex=pepLabCex)
+
+}
+
+#' Create Spectral Library
+#' @param tb tibble maxQuant spectrum level search results
+#' @param minFragNb min frag number default 3 (i.e. b3 and y3 will be kept)
+#' @param minNbTransitions minimum number of fragments
+#' @param minBasePeakFraction minimum intnsity fraction of base peak (most intense kept fragment)
+#' @param ionTypeFilter selected ion type default a,b,x,y
+#' @param includeNL include neutral loss peaks defualt TRUE
+#' @return data.frame
+#' @export
+#' @note  No note
+#' @details No details
+#' @references NA
+#' @examples print("No examples")
+createSpectralLibrary = function(tb, minFragNb = 3, minNbTransitions = 5,maxNbTransitions = 5, minBasePeakFraction = 0, ionTypeFilter = c("a","b","x","y"), includeNL = T  ){
+
+  cat("Parsing Spectra\n")
+  pbSum <- txtProgressBar(min = 0, max = nrow(tb), style = 3)
+  spectralLibrary = data.frame()
+  for(rownb in 1:nrow(tb) ){
+
+    setTxtProgressBar(pbSum, rownb)
+    annotSpec = createLibrarySpectrum(tb[rownb,])
+
+    ### apply spectrum filters
+    # fragment number filter
+    keep = with(annotSpec,  (fragmentNb >= minFragNb) & grepl(paste(ionTypeFilter,collapse="|"), annotSpec$ionType) )
+    # neutral loss peak filter
+    if(!includeNL) keep = keep &  !annotSpec$isNL
+    annotSpec =   subset(annotSpec,keep )
+
+    #fragment intensity as fraction of base peak
+    annotSpec$basePeakIntFrac = annotSpec$intensity / suppressWarnings(max(annotSpec$intensity,na.rm=T))
+    # filter minimum base peak intensity fraction
+    annotSpec = subset(annotSpec,basePeakIntFrac >= minBasePeakFraction )
+
+    # make sure enough fragments
+    if(nrow(annotSpec) >= minNbTransitions){
+
+      #select maxNbTransitions fragments
+      annotSpec = arrange(annotSpec, intensity)[1:min(nrow(annotSpec),maxNbTransitions),]
+
+      # calculate relative intensity based on fragment seleciton
+      annotSpec$relativeIntensity = (annotSpec$intensity / max(annotSpec$intensity))*100
+
+      # sum of adjusted intensity (basis for ranking)
+      annotSpec$adjustedIntensitySum =  annotSpec$adjustedIntensity %>% sum(.,na.rm=T)
+
+      #add to library
+      spectralLibrary = rbind(spectralLibrary,annotSpec )
+    }
+  }
+  # close progress bar
+  setTxtProgressBar(pbSum, rownb)
+  close(pbSum)
+
+  return(spectralLibrary)
+
+}
+
+#' Create complementary isotope (Arg, Lys H/L) spectral library
+#' @param sl tibble or data frame
+#' @return data.frame
+#' @export
+#' @note  No note
+#' @details No details
+#' @references NA
+#' @examples print("No examples")
+createComplementaryIsotopeLibrary = function(sl){
+
+  kShift =8.014199
+  rShift = 10.008269
+
+  hasKCTerm =  grepl("K$" ,sl$peptide)
+  hasRCTerm =  grepl("R$" ,sl$peptide)
+
+  # correct precursor m/z
+  # heavy Lys c-term peptide
+  sl$precMz[sl$isHeavy] = sl$precMz[sl$isHeavy] - (ifelse(hasKCTerm,kShift,0)[sl$isHeavy] / sl$precCharge[sl$isHeavy] )
+  # heavy Arg c-term peptide
+  sl$precMz[sl$isHeavy] = sl$precMz[sl$isHeavy] - (ifelse(hasRCTerm,rShift,0)[sl$isHeavy] / sl$precCharge[sl$isHeavy] )
+  # light Lys c-term peptide
+  sl$precMz[!sl$isHeavy] = sl$precMz[!sl$isHeavy] + (ifelse(hasKCTerm,kShift,0)[!sl$isHeavy] / sl$precCharge[!sl$isHeavy] )
+  # light Arg c-term peptide
+  sl$precMz[!sl$isHeavy] = sl$precMz[!sl$isHeavy] + (ifelse(hasRCTerm,rShift,0)[!sl$isHeavy] / sl$precCharge[!sl$isHeavy] )
+
+  # correct c-term fragment m/z
+  isCTermFrag =  sl$ionType %in% c("x","y","z")
+  # heavy Lys c-term fragment
+  sl$mz[sl$isHeavy & isCTermFrag] = sl$mz[sl$isHeavy & isCTermFrag] - (ifelse(hasKCTerm,kShift,0)[sl$isHeavy & isCTermFrag] / sl$charge[sl$isHeavy & isCTermFrag] )
+  # heavy Arg c-term fragment
+  sl$mz[sl$isHeavy & isCTermFrag] = sl$mz[sl$isHeavy & isCTermFrag] - (ifelse(hasRCTerm,rShift,0)[sl$isHeavy & isCTermFrag] / sl$charge[sl$isHeavy & isCTermFrag] )
+  # light Lys c-term fragment
+  sl$mz[!sl$isHeavy & isCTermFrag] = sl$mz[!sl$isHeavy & isCTermFrag] + (ifelse(hasKCTerm,kShift,0)[!sl$isHeavy & isCTermFrag] / sl$charge[!sl$isHeavy & isCTermFrag] )
+  # light Arg c-term fragment
+  sl$mz[!sl$isHeavy & isCTermFrag] = sl$mz[!sl$isHeavy & isCTermFrag] + (ifelse(hasRCTerm,rShift,0)[!sl$isHeavy & isCTermFrag] / sl$charge[!sl$isHeavy & isCTermFrag] )
+
+
+
+  sl$isHeavy = !sl$isHeavy
+
+  return(sl)
+
+}
+
+#' Write SpectroDive compatible xls file
+#' @param sl tibble or data frame
+#' @export
+#' @note  No note
+#' @details No details
+#' @references NA
+#' @examples print("No examples")
+spectroDiveExport =  function(sl,file){
+  out = data.frame(eg_proteinId = sl$protein
+                   ,eg_proteinDescription = sl$proteinDescription
+                   ,eg_assayCollectionType = "external"
+                   ,eg_iRT = sl$iRT
+                   ,t_relativeFragmentIonIntensity = sl$relativeIntensity
+                   ,tg_aminoAcidSequenceWithASCIIMod = paste(sl$peptide,sl$ptm,sep="_")
+                   ,eg_aminoAcidSequence = sl$peptide
+                   ,tg_precursorCharge = sl$precCharge
+                   ,t_fragmentIonCharge = sl$charge
+                   ,t_fragmentIonSeries = sl$ionType
+                   ,t_fragmentIonNumber = sl$fragmentNb
+                   ,tg_Q1 = sl$precMz
+                   ,t_Q3 = sl$mz
+
+  )
+  write.table(out,file=file,sep="\t",row.names=F)
+  cat("CREATED spectroDiveExport  FILE: ", file,"\n")
+}
+
+#' Write Spectronaut compatible xls file
+#' @param sl tibble or data frame
+#' @export
+#' @note  No note
+#' @details No details
+#' @references NA
+#' @examples print("No examples")
+spectronautExport =  function(sl,file){
+  out = data.frame(protein_id = sl$protein
+                   ,Workflow = "SPIKE_IN"
+                   ,iRT = sl$iRT
+                   ,RelativeFragmentIntensity = sl$relativeIntensity
+                   ,IntModifiedSequence = paste(sl$peptide,sl$ptm,sep="_")
+                   ,StrippedSequence = sl$peptide
+                   ,IsotopicLabel = ifelse(sl$isHeavy,"heavy","light")
+                   ,PrecursorCharge = sl$precCharge
+                   ,FragmentCharge = sl$charge
+                   ,FragmentType = sl$ionType
+                   ,FragmentNumber = sl$fragmentNb
+                   ,PrecursorMz = sl$precMz
+                   ,FragmentMz = sl$mz
+                   ,ExcludeFromQuantification = ""
+
+  )
+  write.table(out,file=file,sep="\t",row.names=F)
+  cat("CREATED spectronautExport  FILE: ", file,"\n")
+}
+
+#' Write skyline compatible xls file
+#' @param sl tibble or data frame
+#' @export
+#' @note  No note
+#' @details No details
+#' @references NA
+#' @examples print("No examples")
+skylineExport =  function(sl,file){
+  out = data.frame(sl$precMz,
+                   sl$mz,
+                   25,
+                   sl$peptide,
+                   sl$protein,
+                   paste0(sl$ionType,sl$fragmentNb),
+                   "",
+                   ifelse(sl$isHeavy,"heavy","light")
+  )
+  write.table(out,file=file,sep="\t",row.names=F, col.names = F)
+  cat("CREATED skylineExport FILE: ", file,"\n")
+}
+
+#' @param file path
+#' @return list() peptides, proteins
+#' @export
+#' @note  No note
+#' @details No details
+#' @references NA
+#' @examples print("No examples")
+parseTargetsFile = function(file){
+  tb = suppressMessages(read_csv(file))
+  names(tb) = names(tb) %>% tolower
+
+  proteins = tb[which(grepl("^protein[s]{0,1}$",names(tb)))]
+  peptides = tb[which(grepl("^peptide[s]{0,1}$",names(tb)))]
+
+  ret = list()
+  ret$proteins = NA
+  ret$peptides = NA
+
+  # give priority to peptides
+  if(length(peptides) > 0 ){
+    ret$peptides = peptides %>% unlist%>% as.vector() %>% unique()
+  }else if(length(proteins) > 0){
+    ret$proteins = proteins %>% unlist%>% as.vector()  %>% unique()
+  }else{
+    stop("parseTargetsFile Invalid File format:",  file)
+  }
+  return(ret)
+}

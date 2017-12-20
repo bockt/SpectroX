@@ -4,16 +4,17 @@
 \alias{parseMaxQuantMSMS}
 \title{Parse MaxQuant msms.txt}
 \usage{
-parseMaxQuantMSMS(file, pepThrs = 0.05, targetPeptides = NA,
+parseMaxQuantMSMS(file, pepCutoff = 0.05, targetPeptides = NA,
   targetProteins = NA, filterContaminants = T,
   contaminantRegExp = "^CON_", selectedPTMRegExp = NA,
   filterNonExclusivePeptides = T, minPepLength = 0, chargeState = 1:10,
-  label = NA, maxMissedCleavages = 0)
+  label = NA, maxMissedCleavages = 0, keepBestSpectrumOnly = T,
+  requiredPepSeqRegExp = ".", ...)
 }
 \arguments{
 \item{file}{path}
 
-\item{pepThrs}{numeric default 0.05}
+\item{pepCutoff}{numeric default 0.05}
 
 \item{targetPeptides}{character default NA}
 
@@ -27,11 +28,15 @@ parseMaxQuantMSMS(file, pepThrs = 0.05, targetPeptides = NA,
 
 \item{filterNonExclusivePeptides}{default TRUE}
 
-\item{minPepLength}{default 0}
+\item{minPepLength}{default 0 minimum peptide length}
 
 \item{chargeState}{default [1,10]}
 
 \item{label}{(Arg10 and Lys8 only filter) options NA (deafault,no filter),  'light','heavy'}
+
+\item{keepBestSpectrumOnly}{keep top-scoring spectrum only, per peptidoform, default TRUE}
+
+\item{requiredSequenceRegExp}{dafualt '.' (no filter)}
 }
 \value{
 data.frame of maxQuant psm level results

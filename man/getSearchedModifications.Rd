@@ -4,13 +4,15 @@
 \alias{getSearchedModifications}
 \title{Get list of variable modifiections condsidered by MaxQuant}
 \usage{
-getSearchedModifications(tb)
+getSearchedModifications(tb, ignoreArgLysIsoLabel = T)
 }
 \arguments{
+\item{ignoreArgLysIsoLabel}{default T Do not consider Arg Lys C,N heavy isotope label}
+
 \item{df}{tible or data.frame}
 }
 \value{
-character vector of modification names
+character vector of modification names (does not return "Arg10","Lys8" labels )
 }
 \description{
 Get list of variable modifiections condsidered by MaxQuant

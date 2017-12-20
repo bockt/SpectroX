@@ -1,17 +1,35 @@
+#!/usr/bin/Rscript
 
-setwd("/Users/ahrnee-adm/dev/R/workspace/SpectroX")
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(magrittr))
+suppressPackageStartupMessages(library(MASS))
+suppressPackageStartupMessages(library(seqinr))
+
+# set this
+PATHTOSPECTROX = "/Users/ahrnee-adm/dev/R/workspace/SpectroX"
+if(!file.exists(PATHTOSPECTROX)){
+  PATHTOSPECTROX = "/home/pcfuser/R/SpectroX"
+}
+
+setwd(PATHTOSPECTROX)
 source("R/SpectroX.R")
+source("R/UserOptions.R")
 
 VERSION <- 2.0
 
 # Use Case I (Find proteotypic peptides):
 # Provided a list of proteins
 # Select X best peptides per protein from full proteome analysis.
-# Peptides are ranked by sum of adjusted fragment intensities
+# Rank peptides by sum of adjusted fragment intensities
 # If not X peptides are found in maxQuant search results, add theoretical peptides (ranked by length) (optional)
 # If no protein list is specified use all proteins with at least one peptide
 #
-#
+
+# Use Case II:
+# Provided a list a peptides or proteins
+# Rank peptides by sum of adjusted fragment intensities
+# Optional: created complementary isotope spectra
+# Export Spectral Library (panel) in spectrodive, spectronaut or skyline format
 
 # 1) parse msms.txt
 # 2) apply target protein and/or peptide filters
@@ -23,125 +41,84 @@ VERSION <- 2.0
 
 ##### PARAMS #########
 
-# input files
-MQRESFILE = "./inst/msms.txt"
-#MQRESFILE = "~/dev/R/workspace/SpectroUtils/inst/testData/msms.tsv"
-#MQRESFILE = "~/dev/R/workspace/SpectroUtils/inst/testData/old/msmsTest.tsv"
-#FASTAFILE = "./inst/vibrio_test.fasta"
-FASTAFILE = "./inst/uniprot_test.fasta"
+
+### USER CMD LINE OPTIONS
+cmdlineOptions <- getCMDLineOptions(version=VERSION)
+uO = getUserOptions(cmdlineOptions)
+### USER CMD LINE OPTIONS END
 
 # panel filters
-TARGETPEPTIDES=NA
-TARGETPROTEINS=NA
-#TARGETPROTEINS = c("P62258","Q9JII5")
 
-PEPTIDEDPERPROTEN = 5
+#### PARSE PEPPROTLISTFILE
 
-# peptide filters
-PEPTHRS = 0.05
-MAXMISCLEAVAGES = 0
-PTMREGEXP = "Oxid"
-#PTMREGEXP = NA
-PEPTIDELENGTHRANGE = c(6,21)
-CHARGESTATE = 2:4
-#REQUIREDPEPSEQ = "[KR]$"
-REQUIREDPEPSEQ = "."
-#INVALIDPEPSEQ = NA
-#INVALIDPEPSEQ = "(M)|(^[PQ])|([KR]P)"
-INVALIDPEPSEQ = "(^[PQ])|([KR]P)"
-#LABEL = "light"
-#LABEL = "heavy"
-LABEL = NA
 
-# assay filters
-TRANSITIONS = 5
-MINBASEPEAKFRACTION = 0.1
-INCLUDENL = F
-MINFRAGNB = 3
-IONTYPEFILTER = c("b","y")
 
-# misc
-KEEPBESTSPECTRUMONLY = T
-PROTEASEREGEXP = "[KR](?!P)"
+# if("Peptide" %in% names(targetsDf)){
+#   targets <- unique(as.character(targetsDf$Peptide))
+# }else if("Protein" %in% names(targetsDf)){
+#   targets <- gsub(" *","",unique(as.character(targetsDf$Protein)))
+# }else{
+#   cat("Invalid pepProtListFile format \n")
+#   print(targetsDf)
+# }
 
-# output files
-XLSFILE =  paste0(tempdir(),"/tmp.xls")
-PDFFILE = paste0(tempdir(),"/tmp.pdf")
 
 ##### PARAMS END #####
 
 ### MAIN
 
 # parse maxQuant results
-cat("Parsing MaxQuant Results file",MQRESFILE,"\n")
-tb = parseMaxQuantMSMS(file = MQRESFILE
-                  ,pepThrs = PEPTHRS
-                  ,targetPeptides = TARGETPEPTIDES
-                  ,targetProteins = TARGETPROTEINS
+cat("Parsing MaxQuant Results file",uO$MQRESFILE,"\n")
+# apply table filters
+tb = parseMaxQuantMSMS(file = uO$MQRESFILE
+                  ,pepCutoff = uO$PEPCUTOFF
+                  ,targetPeptides = uO$TARGETPEPTIDES
+                  ,targetProteins = uO$TARGETPROTEINS
                   ,filterContaminants = T
-                  ,selectedPTMRegExp = PTMREGEXP
-                  ,maxMissedCleavages = MAXMISCLEAVAGES
+                  ,selectedPTMRegExp = uO$PTMREGEXP
+                  ,maxMissedCleavages = uO$MAXMISCLEAVAGES
                   ,keepBestSpectrumOnly = T
-                  ,chargeState = CHARGESTATE
-                  ,label=LABEL
+                  ,chargeState = uO$CHARGESTATE
+                  ,label=uO$LABEL
+                  ,minPepLength =uO$PEPTIDELENGTHRANGE[1]
                   )
 
 
 
-# peptide sequence filters
+# apply peptide sequence filters
 # sequence length
-keep = tb$Length >= PEPTIDELENGTHRANGE[1] & tb$Length <= PEPTIDELENGTHRANGE[2]
+#keep = tb$Length >= PEPTIDELENGTHRANGE[1] & tb$Length <= PEPTIDELENGTHRANGE[2]
 # required peptide sequnece (e.g [KR]$)
-keep = keep & grepl(REQUIREDPEPSEQ,tb$Sequence)
+#keep = keep & grepl(REQUIREDPEPSEQ,tb$Sequence)
+keep = grepl(uO$REQUIREDPEPSEQ,tb$Sequence)
+
+
+
 # non allowed sequnece fetures e.g (M)|(^[PQ])|([KR]P)
-if(!is.na(INVALIDPEPSEQ)) keep =  keep & !grepl(INVALIDPEPSEQ, tb$Sequence)
+if(!is.na(uO$INVALIDPEPSEQ)) keep =  keep & !grepl(uO$INVALIDPEPSEQ, tb$Sequence)
 tb = subset(tb, keep)
 
 # predict iRT
 irtModel = getIRTModel(tb)
 tb$iRT = getEmpiricalIRT(tb,irtModel$fit)
 
-# create annotated spectra
-cat("Parsing Spectra\n")
-pbSum <- txtProgressBar(min = 0, max = nrow(tb), style = 3)
-spectralLibrary = data.frame()
-for(rownb in 1:nrow(tb) ){
-
-  setTxtProgressBar(pbSum, rownb)
-  annotSpec = createAnnotatedSpectrum(tb[rownb,])
-
-  ### apply spectrum filters
-  # fragment number filter
-  filt = with(annotSpec,  (fragmentNb > MINFRAGNB) & grepl(paste(IONTYPEFILTER,collapse="|"), annotSpec$ionType) )
-  # neutral loss peak filter
-  if(!INCLUDENL) filt = filt &  !annotSpec$isNL
-  annotSpec =   subset(annotSpec,filt )
-
-  #fragment intensity as fraction of base peak
-  annotSpec$basePeakIntFrac = annotSpec$intensity / suppressWarnings(max(annotSpec$intensity,na.rm=T))
-  # filter minimum base peak intensity fraction
-  annotSpec = subset(annotSpec,basePeakIntFrac > MINBASEPEAKFRACTION )
-
-  # make sure enough fragments
-  if(nrow(annotSpec) > MINFRAGNB){
-    # sum of adjusted intensity (basis for ranking)
-    annotSpec$adjustedIntensitySum =  annotSpec$adjustedIntensity %>% sum(.,na.rm=T)
-
-    #add to library
-    spectralLibrary = rbind(spectralLibrary,annotSpec )
-  }
-}
-# close progress bar
-setTxtProgressBar(pbSum, rownb)
-close(pbSum)
+# create spectral library
+spectralLibrary = createSpectralLibrary(tb
+                      , minFragNb= uO$MINFRAGNB
+                      , minNbTransitions= min(uO$NBTRANSITIONSRANGE)
+                      , maxNbTransitions =  max(uO$NBTRANSITIONSRANGE)
+                      , minBasePeakFraction = uO$MINBASEPEAKFRACTION
+                      , ionTypeFilter = uO$IONTYPEFILTER
+                      , includeNL = uO$INCLUDENL
+                      )
 
 # parse protein sequence database
-if(!is.na(FASTAFILE)){
-  proteinDB = read.fasta(FASTAFILE,seqtype = "AA",as.string = TRUE, set.attributes = FALSE)
-  theoPeptides = digestProteome(proteinDB,peptideLengthRange = PEPTIDELENGTHRANGE
-                 ,nbMiscleavages = MAXMISCLEAVAGES
+if(!is.na(uO$FASTAFILE)){
+  proteinDB = read.fasta(uO$FASTAFILE,seqtype = "AA",as.string = TRUE, set.attributes = FALSE)
+  theoPeptides = digestProteome(proteinDB,peptideLengthRange = uO$PEPTIDELENGTHRANGE
+                 ,nbMiscleavages = uO$MAXMISCLEAVAGES
                  ,exclusivePeptides = T
-                 ,proteaseRegExp = PROTEASEREGEXP
+                 ,proteaseRegExp = uO$PROTEASEREGEXP
                  ,trimAC = T)
 
   # discard peptides already identified
@@ -149,43 +126,80 @@ if(!is.na(FASTAFILE)){
 
   # peptide sequence filters
   # sequence length
-  keep = theoPeptides$length >= PEPTIDELENGTHRANGE[1] & theoPeptides$length <= PEPTIDELENGTHRANGE[2]
+  keep = theoPeptides$length >= min(uO$PEPTIDELENGTHRANGE) & theoPeptides$length <= max(uO$PEPTIDELENGTHRANGE)
   # required peptide sequnece (e.g [KR]$)
-  keep = keep & grepl(REQUIREDPEPSEQ,theoPeptides$peptide)
+  keep = keep & grepl(uO$REQUIREDPEPSEQ,theoPeptides$peptide)
   # non allowed sequnece fetures e.g (M)|(^[PQ])|([KR]P)
-  if(!is.na(INVALIDPEPSEQ)) keep =  keep & !grepl(INVALIDPEPSEQ,theoPeptides$peptide)
+  if(!is.na(uO$INVALIDPEPSEQ)) keep =  keep & !grepl(uO$INVALIDPEPSEQ,theoPeptides$peptide)
   theoPeptides = subset(theoPeptides, keep)
 }
 
-### MAIN END
+# select top peptide variants (peptide+ ptm ) per protein
+selPetideVariants = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum","isIRT")]%>%
+   unique %>% group_by(protein,peptide,ptm, isIRT) %>% top_n(1,adjustedIntensitySum) %>%
+   split(.$protein) %>%
+   map_df(~ data.frame(peptide=.x$peptide
+                       , ptm = .x$ptm
+                       , protein = .x$protein
+                       , isIRT = .x$isIRT
+                       , adjustedIntensitySum= .x$adjustedIntensitySum
+                       , rank = length(.x$adjustedIntensitySum) - rank(.x$adjustedIntensitySum)+1
+   ))
 
+
+
+selPetideVariants = subset(selPetideVariants,rank < uO$PEPTIDEDPERPROTEN | isIRT )
+# apply peptide ptm filter
+spectralLibrary = spectralLibrary[ paste0(spectralLibrary$peptide,spectralLibrary$ptm) %in% paste0(selPetideVariants$peptide,selPetideVariants$ptm),]
+
+### MAIN END
 
 ### EXPORT
 
+# graphics
+pdf(uO$PDFFILE)
+parDefault = par()
+plotIRTCalibration(irtModel)
+
+
+
+
+#  plot adj. intensity vs peptide (per protein)
+par(mfrow=c(2,2), mar=c(5,5,5,5))
+
+X = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum","precCharge")] %>%
+  split(.$protein) %>%
+  map(~  barplotPeptidesPerProtein(.x %>% unique , ptmRegExp = uO$PTMREGEXP))
+
+cat("CREATED FILE: ", uO$PDFFILE,"\n")
+graphics.off()
+
 # xls
-# proteotypic peptide selection
-for(protein in TARGETPROTEINS){
-
-
-
-
+if(uO$PPEXPORT){
+  # proteotypic peptide selection
+  proteotypicPeptideExport(spectralLibrary = spectralLibrary
+                           ,targetProteins = uO$TARGETPROTEINS
+                           , nbPeptidesPerProtein = uO$PEPTIDEDPERPROTEN
+                           , theoPeptides = theoPeptides
+                           , outFile =uO$XLSFILE
+  )
 }
 
-# graphics
-pdf(PDFFILE)
-plotIRTCalibration(irtModel)
-cat("CREATED FILE: ", PDFFILE,"\n")
-dev.off()
+if(uO$COMPLEMENTARYISOTOPEASSAYS){
+  spectralLibrary = rbind(spectralLibrary, subset(createComplementaryIsotopeLibrary(spectralLibrary), !(isIRT & isHeavy)  ))
+}
 
+if(uO$SPECTRODIVEEXPORT){
+  spectroDiveExport(spectralLibrary,file = uO$XLSFILE )
+}
+
+if(uO$SPECTRONAUTEXPORT){
+  spectronautExport(spectralLibrary,file = uO$XLSFILE )
+}
+
+if(uO$SKYLINEEXPORT){
+  skylineExport(spectralLibrary,file = uO$XLSFILE )
+}
 
 ### EXPORT END
 
-print(dim(tb))
-
-tb$Proteins
-
-subset(tb, Proteins == "Q9JII5" )
-
-spectralLibrary
-
-print(tb$Modifications)
