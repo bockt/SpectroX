@@ -278,6 +278,8 @@ getUserOptions = function(cmdlineOptions){
     targets = parseTargetsFile(uO$PEPPROTLISTFILE)
     uO$TARGETPEPTIDES=  targets$peptides
     uO$TARGETPROTEINS= targets$proteins
+    # set uO$PEPTIDEDPERPROTEN to Inf if target peptide list provided
+    if(!is.na(uO$TARGETPEPTIDES[1])) uO$PEPTIDEDPERPROTEN = Inf
   }
 
 
@@ -296,9 +298,6 @@ getUserOptions = function(cmdlineOptions){
 
   uO$XLSFILE =  paste0(uO$OUTDIR,"/spectroX.xls")
   uO$PDFFILE = paste0(uO$OUTDIR,"/spectroX.pdf")
-
-
-
 
   uO$VERBOSE = cmdlineOptions$verbose
 

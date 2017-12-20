@@ -47,12 +47,10 @@ testParseMaxQuantMSMS = function(){
   # no contaminants
   stopifnot( !grepl("CON_",tb2$Proteins) | grepl("Biognosys",tb2$Proteins) )
 
-  tbTargetPep =  parseMaxQuantMSMS(TESTFILE, pepCutoff = 0.01, filterNonExclusivePeptides = T, targetPeptides = c("AAVPSGASTGIYEALELR","AFMNNK","AATFGLILDDVSLTHLTFGK") )
-  stopifnot(nrow(tbTargetPep) == 1)
-
   # target peptides
   tbTargetPep =  parseMaxQuantMSMS(TESTFILE, pepCutoff = 0.01, filterNonExclusivePeptides = T, targetPeptides = c("AAVPSGASTGIYEALELR","AFMNNK","AATFGLILDDVSLTHLTFGK") )
-  stopifnot(nrow(tbTargetPep) == 1)
+  stopifnot(nrow(subset(tbTargetPep, !isIRT)) == 1)
+
   # target proteins
   tbTargetProteins =  parseMaxQuantMSMS(TESTFILE, pepCutoff = 0.01, filterNonExclusivePeptides = F, targetProteins = c("P67778","P62259","Q9D0K2"), maxMissedCleavages = 2, keepBestSpectrumOnly=F )
   stopifnot(nrow(tbTargetProteins) == 24)

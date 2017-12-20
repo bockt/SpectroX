@@ -83,20 +83,11 @@ tb = parseMaxQuantMSMS(file = uO$MQRESFILE
                   ,minPepLength =uO$PEPTIDELENGTHRANGE[1]
                   )
 
-
-
 # apply peptide sequence filters
-# sequence length
-#keep = tb$Length >= PEPTIDELENGTHRANGE[1] & tb$Length <= PEPTIDELENGTHRANGE[2]
-# required peptide sequnece (e.g [KR]$)
-#keep = keep & grepl(REQUIREDPEPSEQ,tb$Sequence)
 keep = grepl(uO$REQUIREDPEPSEQ,tb$Sequence)
-
-
-
 # non allowed sequnece fetures e.g (M)|(^[PQ])|([KR]P)
 if(!is.na(uO$INVALIDPEPSEQ)) keep =  keep & !grepl(uO$INVALIDPEPSEQ, tb$Sequence)
-tb = subset(tb, keep)
+tb = subset(tb, keep | isIRT)
 
 # predict iRT
 irtModel = getIRTModel(tb)
@@ -148,7 +139,7 @@ selPetideVariants = spectralLibrary[c("protein","peptide","ptm","adjustedIntensi
 
 
 
-selPetideVariants = subset(selPetideVariants,rank < uO$PEPTIDEDPERPROTEN | isIRT )
+selPetideVariants = subset(selPetideVariants,rank <= uO$PEPTIDEDPERPROTEN | isIRT )
 # apply peptide ptm filter
 spectralLibrary = spectralLibrary[ paste0(spectralLibrary$peptide,spectralLibrary$ptm) %in% paste0(selPetideVariants$peptide,selPetideVariants$ptm),]
 

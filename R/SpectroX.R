@@ -82,10 +82,14 @@ parseMaxQuantMSMS = function(file
   # is irt peptide (unmodified)
   tb$isIRT = paste0("_",rownames(IRTPEPTIDES),"_" , collapse="|") %>% grepl(.,tb$`Modified sequence`)
 
+  # rename irt protein entry
+  #tb$Proteins[tb$isIRT] %>% print
+  tb$Proteins[tb$isIRT] = "BiognosysIRT"
+
   # target peptide filter
   if(!is.na(targetPeptides[1])){
     # targetPeptides = c("AAAAAAAAALGVR", "AAAAADEDEEADEEDEAEAGGMGPQAR" )
-    tb = subset(tb, Sequence %in% targetPeptides  )
+    tb = subset(tb, (Sequence %in% targetPeptides) | isIRT  )
   }
   #Filter out non exclusive peptides
   if(filterNonExclusivePeptides){
@@ -535,12 +539,13 @@ proteotypicPeptideExport = function(spectralLibrary
                                     , outFile= paste0(tempdir(),"/tmp.xls")){
 
   # output protein, peptide, adjustedIntensitySum, rank (if multiple charge states pick most intense)
-  xlsOut = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum")]%>%
+  xlsOut = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum","isIRT")]%>%
     unique %>% group_by(protein,peptide,ptm) %>% top_n(1,adjustedIntensitySum) %>%
     split(.$protein) %>%
     map_df(~ data.frame(peptide=.x$peptide
                         , ptm = .x$ptm
                         , protein = .x$protein
+                        , isIRT = .x$isIRT
                         , adjustedIntensitySum= .x$adjustedIntensitySum
                         , rank = length(.x$adjustedIntensitySum) - rank(.x$adjustedIntensitySum)+1
     ))
@@ -571,12 +576,12 @@ proteotypicPeptideExport = function(spectralLibrary
       subTP = subTP[ order(subTP$length),]
       # add nbMissingPep peptides
       sel = 1:min(nbMissingPeptidesPerProt[match(prot, rownames(nbMissingPeptidesPerProt)),]$nbMissingPep, nrow(subTP))
-      xlsOut = rbind(xlsOut, cbind(subTP[sel,c("peptide", "protein")], adjustedIntensitySum=NA,ptm =NA, rank=nbPeptidesPerProtein ) )
+      xlsOut = rbind(xlsOut, cbind(subTP[sel,c("peptide", "protein")], adjustedIntensitySum=NA,ptm =NA,  isIRT = F, rank=nbPeptidesPerProtein ) )
     }
   }
 
   #keep all irts
-  write.table(file=outFile,  subset(xlsOut, (rank <= nbPeptidesPerProtein) |  grepl("Biognosys",protein) ) %>% arrange(.,protein,rank) ,row.names=F,sep = "\t")
+  write.table(file=outFile,  subset(xlsOut, (rank <= nbPeptidesPerProtein) | isIRT ) %>% arrange(.,protein,rank) ,row.names=F,sep = "\t")
   cat("CREATED proteotypicPeptideExport FILE: ", outFile,"\n")
 
 }
