@@ -10,7 +10,7 @@ getCMDLineOptions(version = version)
 \item{version}{SpectroX version number}
 }
 \value{
-list() user options list
+list() cmd line options
 }
 \description{
 Define and User Specified Command Line Options

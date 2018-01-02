@@ -7,8 +7,8 @@
 parseMaxQuantMSMS(file, pepCutoff = 0.05, targetPeptides = NA,
   targetProteins = NA, filterContaminants = T,
   contaminantRegExp = "^CON_", selectedPTMRegExp = NA,
-  filterNonExclusivePeptides = T, minPepLength = 0, chargeState = 1:10,
-  label = NA, maxMissedCleavages = 0, keepBestSpectrumOnly = T,
+  filterNonExclusivePeptides = T, minPepLength = 0, chargeState = c(1,
+  Inf), label = NA, maxMissedCleavages = 0, keepBestSpectrumOnly = T,
   requiredPepSeqRegExp = ".", ...)
 }
 \arguments{
@@ -30,7 +30,7 @@ parseMaxQuantMSMS(file, pepCutoff = 0.05, targetPeptides = NA,
 
 \item{minPepLength}{default 0 minimum peptide length}
 
-\item{chargeState}{default [1,10]}
+\item{chargeState}{default [1,Inf)}
 
 \item{label}{(Arg10 and Lys8 only filter) options NA (deafault,no filter),  'light','heavy'}
 

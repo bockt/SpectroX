@@ -75,16 +75,16 @@ getCMDLineOptions = function(version=version){
                 help="PEPTIDE: --PE Posterior Error Probability Cutoff.  [0-1] [default %default]"
     ),
 
-    make_option(c("--PMisCleavages"), type="integer", default=0,
-                help="PEPTIDE: --PM Maximum number of missed cleavages. [default %default]"
+    make_option(c("--PNumberMisCleavages"), type="integer", default=0,
+                help="PEPTIDE: --PN Maximum number of missed cleavages. [default %default]"
     ),
 
     make_option(c("--PCleavageEnzymeRegEx"), type="character", default="[KR](?!P)",
                 help="PEPTIDE: --PC Protease cleavage specificity regular expression. [default %default]"
     ),
 
-    make_option(c("--PLengthRange"), type="character", default=NA,
-                help="PEPTIDE: --PL Peptide length filter. Example '5:22' keeps peptides with [5,22] amino acids  . [default no filter]"
+    make_option(c("--PLengthRange"), type="character", default="5:30",
+                help="PEPTIDE: --PL Peptide length filter. Example '5:30' keeps peptides with [5,30] amino acids  . [default no filter]"
     ),
 
     make_option(c("--PZRange"), type="character", default=NA,
@@ -207,7 +207,7 @@ getUserOptions = function(cmdlineOptions){
   if(!is.na(uO$FASTAFILE) & !file.exists(uO$FASTAFILE)) stop("File not found: ",uO$FASTAFILE,"\n")
 
   uO$OUTDIR = cmdlineOptions$outputDir
-  if(!is.na(uO$OUTDIR)) uO$OUTDIR  = dirname( uO$MQRESFILE)
+  if(is.na(uO$OUTDIR)) uO$OUTDIR  = dirname( uO$MQRESFILE)
   if(!file.exists(uO$OUTDIR)) stop("outputDir not found: ",uO$OUTDIR,"\n")
   #if(!is.na(uO$OUTDIR) & !file.exists(uO$OUTDIR)) stop("outputDir not found: ",uO$OUTDIR,"\n")
 
@@ -223,8 +223,8 @@ getUserOptions = function(cmdlineOptions){
   uO$PEPCUTOFF = cmdlineOptions$PEpCutoff
   if(uO$PEPCUTOFF < 0 | uO$PEPCUTOFF > 1 ) stop("Invalid PEpCutoff: ",uO$PEPCUTOFF,"\n")
 
-  uO$MAXMISCLEAVAGES = cmdlineOptions$PMisCleavages
-  if(uO$MAXMISCLEAVAGES < 0) stop("Invalid PMisCleavages: ",uO$MAXMISCLEAVAGES,"\n")
+  uO$MAXMISCLEAVAGES = cmdlineOptions$PNumberMisCleavages
+  if(uO$MAXMISCLEAVAGES < 0) stop("Invalid PNumberMisCleavages: ",uO$MAXMISCLEAVAGES,"\n")
 
   uO$PROTEASEREGEXP = cmdlineOptions$PCleavageEnzymeRegEx
 

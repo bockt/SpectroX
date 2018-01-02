@@ -90,6 +90,11 @@ parseMaxQuantMSMS = function(file
   if(!is.na(targetPeptides[1])){
     # targetPeptides = c("AAAAAAAAALGVR", "AAAAADEDEEADEEDEAEAGGMGPQAR" )
     tb = subset(tb, (Sequence %in% targetPeptides) | isIRT  )
+    # disable additional peptide filters
+    filterNonExclusivePeptides = F
+    minPepLength = 0
+    maxMissedCleavages = Inf
+    requiredPepSeqRegExp = "."
   }
   #Filter out non exclusive peptides
   if(filterNonExclusivePeptides){
@@ -98,7 +103,7 @@ parseMaxQuantMSMS = function(file
     nonExclPeptides =  subset(tb, grepl("\\;",Proteins))
     if(nrow(nonExclPeptides) > 0 ){
       cat("Warning - Found Non-Exclusive Peptides:")
-      nonExclPeptides[c("Sequence","Proteins")] %>% as.data.frame() %>% print
+      nonExclPeptides[c("Sequence","Proteins")] %>% as.data.frame() %>% unique %>% print
     }
   }
 
@@ -133,6 +138,7 @@ parseMaxQuantMSMS = function(file
 
   # get all modifications seached for
   excludedPTM = getSearchedModifications(tb,...)
+
   cat("INFO: allowed PTMs:", ifelse(is.na(excludedPTM[grepl(selectedPTMRegExp,excludedPTM)][1]),"None", paste(excludedPTM[grepl(selectedPTMRegExp,excludedPTM)],collapse=":")),"\n")
   # e.g. "Oxidation (M)". Is "Oxidation (M)" allowed. Check if it matches regexp
   if(!is.na(selectedPTMRegExp)) excludedPTM = excludedPTM[!grepl(selectedPTMRegExp,excludedPTM)]
@@ -183,6 +189,8 @@ parseMaxQuantMSMS = function(file
 getSearchedModifications = function(tb, ignoreArgLysIsoLabel=T){
 
   mods = names(tb)[grepl("Probabilities$",names(tb))] %>% gsub(" Probabilities$","",.)
+  # add n-term mods
+  mods = c(mods,names(tb)[grepl("N\\-term",names(tb))])
   # remove "Arg10"         "Lys8"
   if(ignoreArgLysIsoLabel) mods = mods[!(mods %in% c("Arg10","Lys8"))]
   return(mods)
@@ -483,9 +491,13 @@ digestProteome = function(proteins, proteaseRegExp="[KR](?!P)",dispProgressBar=T
   if(dispProgressBar) cat("Digesting Proteome \n")
   pbSum <- txtProgressBar(min = 0, max = length(proteins), style = 3)
 
-  peptideDf = data.frame()
+  nbProteins =length(proteins)
+  # assume 100 peptides per protein
+  allPeptides = rep(NA,nbProteins*100)
+  allProteins =  rep(NA,nbProteins*100)
 
-  for(i in 1:length(proteins)){
+  j = 1
+  for(i in 1:nbProteins){
 
     prot <- names(proteins)[i]
     ### increment progressbar
@@ -494,12 +506,22 @@ digestProteome = function(proteins, proteaseRegExp="[KR](?!P)",dispProgressBar=T
     # digest
     peptides <- getPeptides(unlist(proteins[prot]), proteaseRegExp= proteaseRegExp, nbMiscleavages=nbMiscleavages)
     # keep only peptides in accetped length range
-    peptides = peptides[nchar(peptides) %in%  peptideLengthRange[1]:peptideLengthRange[2] ]
 
-    if(length(peptides) > 0 ){
-      peptideDf = rbind(peptideDf,  cbind(peptides,  prot) )
-    }
+    # add peptides and protein to vector
+    k = (j+length(peptides)-1)
+    allPeptides[j:k] = peptides
+    allProteins[j:k] = prot
+    j = k+1
+
   }
+
+  # create df
+  peptideDf = na.omit(data.frame(allPeptides,allProteins))
+  names(peptideDf) = c("peptides","proteins")
+
+  # filter by peptide length
+  pepLength = nchar(peptideDf$peptides %>% as.character)
+  peptideDf = subset(peptideDf,  (pepLength >=  min(peptideLengthRange)) & (pepLength <= max(peptideLengthRange)))
 
   # close progress bar
   setTxtProgressBar(pbSum, i)

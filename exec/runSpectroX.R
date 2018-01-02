@@ -1,6 +1,10 @@
 #!/usr/bin/Rscript
 
-suppressPackageStartupMessages(library(tidyverse))
+#suppressPackageStartupMessages(library(tidyverse))
+
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(readr))
 suppressPackageStartupMessages(library(magrittr))
 suppressPackageStartupMessages(library(MASS))
 suppressPackageStartupMessages(library(seqinr))
@@ -11,9 +15,12 @@ if(!file.exists(PATHTOSPECTROX)){
   PATHTOSPECTROX = "/home/pcfuser/R/SpectroX"
 }
 
-setwd(PATHTOSPECTROX)
-source("R/SpectroX.R")
-source("R/UserOptions.R")
+#setwd(PATHTOSPECTROX)
+#source("R/SpectroX.R")
+#source("R/UserOptions.R")
+
+source(paste0(PATHTOSPECTROX,"/R/SpectroX.R"))
+source(paste0(PATHTOSPECTROX,"/R/UserOptions.R"))
 
 VERSION <- 2.0
 
@@ -83,11 +90,14 @@ tb = parseMaxQuantMSMS(file = uO$MQRESFILE
                   ,minPepLength =uO$PEPTIDELENGTHRANGE[1]
                   )
 
-# apply peptide sequence filters
-keep = grepl(uO$REQUIREDPEPSEQ,tb$Sequence)
-# non allowed sequnece fetures e.g (M)|(^[PQ])|([KR]P)
-if(!is.na(uO$INVALIDPEPSEQ)) keep =  keep & !grepl(uO$INVALIDPEPSEQ, tb$Sequence)
-tb = subset(tb, keep | isIRT)
+keep = rep(T,nrow(tb))
+# apply peptide sequence filters unless target peptide list provided
+if(is.na(uO$TARGETPEPTIDES)[1]){
+  keep = grepl(uO$REQUIREDPEPSEQ,tb$Sequence)
+  # non allowed sequnece fetures e.g (M)|(^[PQ])|([KR]P)
+  if(!is.na(uO$INVALIDPEPSEQ)) keep =  keep & !grepl(uO$INVALIDPEPSEQ, tb$Sequence)
+  tb = subset(tb, keep | isIRT)
+}
 
 # predict iRT
 irtModel = getIRTModel(tb)
@@ -112,7 +122,7 @@ if(!is.na(uO$FASTAFILE)){
                  ,proteaseRegExp = uO$PROTEASEREGEXP
                  ,trimAC = T)
 
-  # discard peptides already identified
+   # discard peptides already identified
   theoPeptides = subset(theoPeptides, !(peptide %in% spectralLibrary$peptide)  )
 
   # peptide sequence filters
@@ -166,7 +176,7 @@ cat("CREATED FILE: ", uO$PDFFILE,"\n")
 graphics.off()
 
 # xls
-if(uO$PPEXPORT){
+if(uO$PPEXPORT & exists("theoPeptides")){
   # proteotypic peptide selection
   proteotypicPeptideExport(spectralLibrary = spectralLibrary
                            ,targetProteins = uO$TARGETPROTEINS
