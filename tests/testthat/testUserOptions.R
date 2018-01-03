@@ -17,5 +17,4 @@ testParseRange = function(){
 
 
 # run tests
-
 testParseRange()
