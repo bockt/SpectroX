@@ -857,6 +857,7 @@ skylineExport =  function(sl,file){
   cat("CREATED skylineExport FILE: ", file,"\n")
 }
 
+#' Parse list of target peptides/proteins
 #' @param file path
 #' @return list() peptides, proteins
 #' @export
