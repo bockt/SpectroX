@@ -6,3 +6,5 @@ inst/testData/testProj1/*
 inst/testData/testProj2/*
 inst/testData/testProj3/*
 
+*.sh
+roxygenize.R
