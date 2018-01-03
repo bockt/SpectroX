@@ -48,7 +48,7 @@ IRTPEPTIDES <- data.frame(refIRT = sort(c(0.00,0.00
 #' @param contaminantRegExp '^CON_'
 #' @param selectedPTMRegExp NA
 #' @param filterNonExclusivePeptides default TRUE
-#' @param minPepLength default 0 minimum peptide length
+#' @param pepLength default [1,Inf)
 #' @param chargeState default [1,Inf)
 #' @param label (Arg10 and Lys8 only filter) options NA (deafault,no filter),  'light','heavy'
 #' @param keepBestSpectrumOnly  keep top-scoring spectrum only, per peptidoform, default TRUE
@@ -67,7 +67,7 @@ parseMaxQuantMSMS = function(file
                              , contaminantRegExp = '^CON_'
                              , selectedPTMRegExp = NA
                              , filterNonExclusivePeptides = T
-                             , minPepLength = 0
+                             , pepLength = c(1,Inf)
                              , chargeState = c(1,Inf)
                              , label = NA
                              , maxMissedCleavages = 0
@@ -92,7 +92,7 @@ parseMaxQuantMSMS = function(file
     tb = subset(tb, (Sequence %in% targetPeptides) | isIRT  )
     # disable additional peptide filters
     filterNonExclusivePeptides = F
-    minPepLength = 0
+    pepLength = c(1,Inf)
     maxMissedCleavages = Inf
     requiredPepSeqRegExp = "."
   }
@@ -122,8 +122,8 @@ parseMaxQuantMSMS = function(file
   keep = keep & (tb$PEP <  pepCutoff)
   # decoy filter
   keep = keep & (is.na(tb$Reverse) | tb$Reverse != "+" )
-  # min peptide length
-  keep = keep &  tb$Length >= minPepLength
+  # peptide length
+  keep = keep &  ((tb$Length >= min(pepLength)) & (tb$Length <= max(pepLength)) )
 
 
   # keep charge state
@@ -168,10 +168,11 @@ parseMaxQuantMSMS = function(file
 
   # filterBestSpectrum
   # keep top-scoring spectrum only, per peptidoform
-  if(keepBestSpectrumOnly) tb = group_by(tb, Sequence, Modifications) %>% filter(rank(Score,ties.method = "random") == length(Score))
+  if(keepBestSpectrumOnly) tb = group_by(tb, Sequence, Modifications) %>% filter(rank(Score,ties.method = "first") == length(Score))
 
   # casting
   suppressWarnings(tb$`Precursor Apex Fraction` %<>% as.numeric)
+  suppressWarnings(tb$`Precursor Intensity` %<>% as.numeric)
 
   return(tb)
 
@@ -254,6 +255,8 @@ createLibrarySpectrum <- function(psm){
                         , retentionTime = psm$`Retention time`
                         , iRT = suppressWarnings(ifelse(is.null(psm$iRT),NA,psm$iRT))
                         , precCharge = as.numeric(psm$Charge)
+                        , precApexIntensity = psm$`Precursor Intensity` / psm$`Precursor Apex Fraction`
+                        , psmScore = psm$Score
                         , protein = as.character(psm$Proteins)
                         , proteinDescription =psm$`Protein Names`
                         , peptide = as.character(psm$Sequence)
@@ -560,16 +563,19 @@ proteotypicPeptideExport = function(spectralLibrary
                                     , nbPeptidesPerProtein=5
                                     , outFile= paste0(tempdir(),"/tmp.xls")){
 
-  # output protein, peptide, adjustedIntensitySum, rank (if multiple charge states pick most intense)
-  xlsOut = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum","isIRT")]%>%
-    unique %>% group_by(protein,peptide,ptm) %>% top_n(1,adjustedIntensitySum) %>%
+  # output protein, peptide, rankingMetric, rank (if multiple charge states pick most intense)
+  xlsOut = spectralLibrary[c("protein","peptide","ptm","rankingMetric","isIRT","adjustedIntensitySum", "psmScore", "precApexIntensity")]%>%
+    unique %>% group_by(protein,peptide,ptm) %>% top_n(1,rankingMetric) %>%
     split(.$protein) %>%
     map_df(~ data.frame(peptide=.x$peptide
                         , ptm = .x$ptm
                         , protein = .x$protein
                         , isIRT = .x$isIRT
-                        , adjustedIntensitySum= .x$adjustedIntensitySum
-                        , rank = length(.x$adjustedIntensitySum) - rank(.x$adjustedIntensitySum)+1
+                        , adjustedIntensitySum =  .x$adjustedIntensitySum
+                        , psmScore =  .x$psmScore
+                        , precApexIntensity =  .x$precApexIntensity
+                        , rankingMetric= .x$rankingMetric
+                        , rank = length(.x$rankingMetric) - rank(.x$rankingMetric)+1
     ))
 
   # get proteins without enough peptides
@@ -590,17 +596,29 @@ proteotypicPeptideExport = function(spectralLibrary
   }
 
   # add theo peptides
-  for(prot in nbMissingPeptidesPerProt$protein ){
-    # if protein has theo peptides
-    if(prot %in% theoPeptides$protein ){
-      subTP = subset(theoPeptides, protein %in% prot )
-      # order peptides by length
-      subTP = subTP[ order(subTP$length),]
-      # add nbMissingPep peptides
-      sel = 1:min(nbMissingPeptidesPerProt[match(prot, rownames(nbMissingPeptidesPerProt)),]$nbMissingPep, nrow(subTP))
-      xlsOut = rbind(xlsOut, cbind(subTP[sel,c("peptide", "protein")], adjustedIntensitySum=NA,ptm =NA,  isIRT = F, rank=nbPeptidesPerProtein ) )
+  if(!is.null(theoPeptides %>% dim)){
+    for(prot in nbMissingPeptidesPerProt$protein ){
+      # if protein has theo peptides
+      if(prot %in% theoPeptides$protein ){
+        subTP = subset(theoPeptides, protein %in% prot )
+        # order peptides by length
+        subTP = subTP[ order(subTP$length),]
+        # add nbMissingPep peptides
+        sel = 1:min(nbMissingPeptidesPerProt[match(prot, rownames(nbMissingPeptidesPerProt)),]$nbMissingPep, nrow(subTP))
+        xlsOut = rbind(xlsOut, cbind(subTP[sel,c("peptide", "protein")]
+                                     , rankingMetric=NA
+                                     , ptm =NA
+                                     , isIRT = F
+                                     , rank=nbPeptidesPerProtein
+                                     , adjustedIntensitySum =  NA
+                                     , psmScore =  NA
+                                     , precApexIntensity =  NA
+
+                                     ) )
+      }
     }
   }
+
 
   #keep all irts
   write.table(file=outFile,  subset(xlsOut, (rank <= nbPeptidesPerProtein) | isIRT ) %>% arrange(.,protein,rank) ,row.names=F,sep = "\t")
@@ -614,26 +632,27 @@ proteotypicPeptideExport = function(spectralLibrary
 #' @param ptmRegExp default NA, higliht modified peptides in red (do not highlight labels)
 #' @param pepLenTrunc integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
 #' @param pepLabCex default 0.7
+#' @param rankingMetric character
 #' @export
 #' @note  No note
 #' @references NA
 #' @examples print("No examples")
-barplotPeptidesPerProtein = function(df, ptmRegExp=NA,pepLenTrunc=12,pepLabCex=0.7,...){
+barplotPeptidesPerProtein = function(df, ptmRegExp=NA,pepLenTrunc=12,pepLabCex=0.7,rankingMetric="rankingMetric",...){
 
   # display modified peptide in red
   col = "blue"
   if(!is.na(ptmRegExp)) col = c("blue","red")[grepl(ptmRegExp,df$ptm)+1]
 
   # avoid log(0) issue
-  df$adjustedIntensitySum = df$adjustedIntensitySum +1
-
+  df$rankingMetric = df$rankingMetric +1
 
   # order by intensity decreasing L-R
-  df = arrange(df,-adjustedIntensitySum)
-  bp =  barplot(df$adjustedIntensitySum %>% log10
+  df = arrange(df,-rankingMetric)
+  bp =  barplot(df$rankingMetric %>% log10
                 , main = df$protein[1]
                 , xaxt = "n"
-                , ylab="Adj. Fragment Int. Sum\n log10"
+                #, ylab="Adj. Fragment Int. Sum\n log10"
+                ,ylab = paste0(rankingMetric,"\n log10")
                 ,col=col
                 ,...
   )
@@ -657,13 +676,14 @@ barplotPeptidesPerProtein = function(df, ptmRegExp=NA,pepLenTrunc=12,pepLabCex=0
 #' @param minBasePeakFraction minimum intnsity fraction of base peak (most intense kept fragment)
 #' @param ionTypeFilter selected ion type default a,b,x,y
 #' @param includeNL include neutral loss peaks defualt TRUE
+#' @param rankingMetric character. column name, used for ranking peptide, default "adjustedIntensitySum", c("adjustedIntensitySum","psmScore","precApexIntensity")
 #' @return data.frame
 #' @export
 #' @note  No note
 #' @details No details
 #' @references NA
 #' @examples print("No examples")
-createSpectralLibrary = function(tb, minFragNb = 3, minNbTransitions = 5,maxNbTransitions = 5, minBasePeakFraction = 0, ionTypeFilter = c("a","b","x","y"), includeNL = T  ){
+createSpectralLibrary = function(tb, minFragNb = 3, minNbTransitions = 5,maxNbTransitions = 5, minBasePeakFraction = 0, ionTypeFilter = c("a","b","x","y"), includeNL = T, rankingMetric = "adjustedIntensitySum"  ){
 
   cat("Parsing Spectra\n")
   pbSum <- txtProgressBar(min = 0, max = nrow(tb), style = 3)
@@ -697,7 +717,14 @@ createSpectralLibrary = function(tb, minFragNb = 3, minNbTransitions = 5,maxNbTr
       # sum of adjusted intensity (basis for ranking)
       annotSpec$adjustedIntensitySum =  annotSpec$adjustedIntensity %>% sum(.,na.rm=T)
 
-      #add to library
+      # default ranking metric - summed adjusted intensity
+      if(rankingMetric %in% names(annotSpec) & is.numeric(annotSpec[,rankingMetric])){
+        annotSpec$rankingMetric =  annotSpec[,rankingMetric][1]
+      }else{
+        stop("createSpectralLibrary: Invalid rankingMetric", rankingMetric)
+      }
+
+      #add to library, SLOW append
       spectralLibrary = rbind(spectralLibrary,annotSpec )
     }
   }
@@ -857,4 +884,43 @@ parseTargetsFile = function(file){
     stop("parseTargetsFile Invalid File format:",  file)
   }
   return(ret)
+}
+
+#' plot adj. intensity vs peptide (per protein) barplot
+#' @param spectralLibrary data.frame
+#' @param ptmRegExp default NA, higliht modified peptides in red (do not highlight labels)
+#' @param acLenTrunc integer default 12 "SOMEVERYLONGAC" -> "SOMEVERY.."
+#' @param protLabCex default 0.9
+#' @export
+#' @note  No note
+#' @references NA
+#' @examples print("No examples")
+barplotPetideCountPerProtein = function(spectralLibrary, protLabCex=0.9, acLenTrunc=12, col = "blue",cex.axis = 1.25, cex.lab = 1.25 , ... ){
+  pepPerProt = (spectralLibrary[c("protein","peptide","ptm") ] %>% unique)[,"protein"] %>%table %>% sort(.,decreasing = T)
+  protLab =names(pepPerProt)
+
+  if(length(protLab) < 30){
+    bp =barplot(pepPerProt,las=2, xaxt="n", ylab = "Unique Peptide Count", col =col,cex.axis=cex.axis,cex.lab=cex.lab,...)
+
+
+    axis(1, labels = FALSE,tick=F)
+    # truncate labels "SOMEVERYLONGAC" -> "SOMEVERY.."
+    sel = nchar( protLab) > acLenTrunc
+    protLab[sel] =  paste0(substr( protLab,1,acLenTrunc),"..")[sel]
+    ### 45 degree labels
+    text(bp, par("usr")[3], srt=45, adj = 1.1,
+         labels =protLab, xpd = TRUE ,cex=protLabCex)
+  }else{
+    #axis(1, labels = TRUE,tick=T, cex.axis=cex.axis)
+    #mtext("Protein",side =1, line=3, cex=cex.lab)
+    h = hist(pepPerProt,breaks =  1:max(pepPerProt)
+         ,cex.axis=cex.axis
+         ,cex.lab=cex.lab
+         ,xlab = "Unique Peptide Count Per Protein"
+         ,col=col
+         ,main=""
+         )
+    axis(1, labels = TRUE,tick=T, cex.axis=cex.axis)
+
+  }
 }

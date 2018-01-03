@@ -6,7 +6,7 @@
 \usage{
 createSpectralLibrary(tb, minFragNb = 3, minNbTransitions = 5,
   maxNbTransitions = 5, minBasePeakFraction = 0, ionTypeFilter = c("a",
-  "b", "x", "y"), includeNL = T)
+  "b", "x", "y"), includeNL = T, rankingMetric = "adjustedIntensitySum")
 }
 \arguments{
 \item{tb}{tibble maxQuant spectrum level search results}
@@ -20,6 +20,8 @@ createSpectralLibrary(tb, minFragNb = 3, minNbTransitions = 5,
 \item{ionTypeFilter}{selected ion type default a,b,x,y}
 
 \item{includeNL}{include neutral loss peaks defualt TRUE}
+
+\item{rankingMetric}{character. column name, used for ranking peptide, default "adjustedIntensitySum", c("adjustedIntensitySum","psmScore","precApexIntensity")}
 }
 \value{
 data.frame

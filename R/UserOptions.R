@@ -152,6 +152,17 @@ getCMDLineOptions = function(version=version){
 
     # SPECTRUM (--S) END
 
+    # RANKING (--R)
+
+    make_option(c("--RRankingMetric"), type="integer", default=1,
+                help="RANKING: --RR [default %default]
+                1) adjustedIntensitySum
+                2) precApexIntensity
+                3) psmScore"
+    ),
+    # RANKING (--R) END
+
+
     #EXPORT (--E)
     make_option(c("--EXportFormats"), type="integer", default=1,
                 help="EXPORT: --EX [default %default]
@@ -271,7 +282,7 @@ getUserOptions = function(cmdlineOptions){
 
   uO$COMPLEMENTARYISOTOPEASSAYS = cmdlineOptions$SComplementaryIsotopeSpectrum
 
-  ##############################eptide or protein  targets ##############################
+  ############################## peptide or protein  targets ##############################
   uO$TARGETPEPTIDES=  NA
   uO$TARGETPROTEINS= NA
   if(!is.na(uO$PEPPROTLISTFILE)){
@@ -282,6 +293,17 @@ getUserOptions = function(cmdlineOptions){
     if(!is.na(uO$TARGETPEPTIDES[1])) uO$PEPTIDEDPERPROTEN = Inf
   }
 
+  ############################## raning ##############################
+
+  # TEMP
+  #uO$RANKINGMETRIC = "adjustedIntensitySum"
+  #uO$RANKINGMETRIC = "psmScore"
+  #uO$RANKINGMETRIC = "RANKINGMETRIC"
+
+  uO$RANKINGMETRIC = "adjustedIntensitySum"
+  if(cmdlineOptions$RRankingMetric == 2) uO$RANKINGMETRIC = "precApexIntensity"
+  if(cmdlineOptions$RRankingMetric == 3) uO$RANKINGMETRIC = "psmScore"
+  if(cmdlineOptions$RRankingMetric > 3)  stop("Invalid RRankingMetric: ",cmdlineOptions$RRankingMetric,"\n")
 
   ############################## output files ##############################
 
@@ -296,8 +318,8 @@ getUserOptions = function(cmdlineOptions){
   if(sum(uO[grepl("EXPORT$", names(uO))] %>% unlist ) == 0 )stop("Invalid EXportFormats: ",cmdlineOptions$EXportFormats,"\n")
 
 
-  uO$XLSFILE =  paste0(uO$OUTDIR,"/spectroX.xls")
-  uO$PDFFILE = paste0(uO$OUTDIR,"/spectroX.pdf")
+  uO$XLSFILE =  paste0(uO$OUTDIR,"/", cmdlineOptions$resultsFileLabel,".xls")
+  uO$PDFFILE =  paste0(uO$OUTDIR,"/", cmdlineOptions$resultsFileLabel,".pdf")
 
   uO$VERBOSE = cmdlineOptions$verbose
 

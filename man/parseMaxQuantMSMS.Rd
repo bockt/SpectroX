@@ -7,9 +7,9 @@
 parseMaxQuantMSMS(file, pepCutoff = 0.05, targetPeptides = NA,
   targetProteins = NA, filterContaminants = T,
   contaminantRegExp = "^CON_", selectedPTMRegExp = NA,
-  filterNonExclusivePeptides = T, minPepLength = 0, chargeState = c(1,
-  Inf), label = NA, maxMissedCleavages = 0, keepBestSpectrumOnly = T,
-  requiredPepSeqRegExp = ".", ...)
+  filterNonExclusivePeptides = T, pepLength = c(1, Inf),
+  chargeState = c(1, Inf), label = NA, maxMissedCleavages = 0,
+  keepBestSpectrumOnly = T, requiredPepSeqRegExp = ".", ...)
 }
 \arguments{
 \item{file}{path}
@@ -28,7 +28,7 @@ parseMaxQuantMSMS(file, pepCutoff = 0.05, targetPeptides = NA,
 
 \item{filterNonExclusivePeptides}{default TRUE}
 
-\item{minPepLength}{default 0 minimum peptide length}
+\item{pepLength}{default [1,Inf)}
 
 \item{chargeState}{default [1,Inf)}
 

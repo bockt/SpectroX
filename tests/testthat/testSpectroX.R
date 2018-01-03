@@ -52,7 +52,7 @@ testParseMaxQuantMSMS = function(){
 
   # target peptides
   tbTargetPep =  parseMaxQuantMSMS(TESTFILE, pepCutoff = 0.01, filterNonExclusivePeptides = T, targetPeptides = c("AAVPSGASTGIYEALELR","AFMNNK","AATFGLILDDVSLTHLTFGK") )
-  stopifnot(nrow(subset(tbTargetPep, !isIRT)) == 1)
+  stopifnot(nrow(subset(tbTargetPep, !isIRT)) == 2)
 
   # target proteins
   tbTargetProteins =  parseMaxQuantMSMS(TESTFILE, pepCutoff = 0.01, filterNonExclusivePeptides = F, targetProteins = c("P67778","P62259","Q9D0K2"), maxMissedCleavages = 2, keepBestSpectrumOnly=F )
@@ -70,7 +70,7 @@ testParseMaxQuantMSMS = function(){
   stopifnot( parseMaxQuantMSMS(TESTFILE, pepCutoff = 1, maxMissedCleavages = 2, ignoreArgLysIsoLabel=F )$Modifications %>% unique() == "Unmodified")
 
   # pep length
-  tbPepLen = parseMaxQuantMSMS(TESTFILE,minPepLength = 10)
+  tbPepLen = parseMaxQuantMSMS(TESTFILE,pepLength = c(10,Inf))
   stopifnot(nchar(tbPepLen$Sequence)> 10 |  grepl("Biognosys",tbPepLen$Proteins) )
   cat("--- testParseMaxQuantMSMS: PASS ALL TEST --- \n")
 
@@ -88,10 +88,12 @@ testCreateLibrarySpectrum <- function(){
 
   cat("--- testCreateLibrarySpectrum: --- \n")
   annotSpec = createLibrarySpectrum(TB[7,])
-  stopifnot(dim(annotSpec) == c(17,21) )
+  stopifnot(dim(annotSpec) == c(17,23) )
   stopifnot( c("a","b","y") == levels(annotSpec$ionType) )
   stopifnot(annotSpec$adjustedIntensity > annotSpec$intensity    )
   stopifnot(annotSpec$precCharge == TB[7,]$Charge)
+  stopifnot(annotSpec$precApexIntensity >=    annotSpec$precIntensity)
+
   cat("--- testCreateLibrarySpectrum: PASS ALL TEST --- \n")
 }
 
@@ -192,14 +194,15 @@ testDigestProteome = function(){
 
 }
 
-
-
 testProteotypicPeptideExport = function(){
 
   cat("--- testProteotypicPeptideExport: --- \n")
 
   specLib = createLibrarySpectrum(TB[9,])
+  specLib$rankingMetric = 1
   specLib$adjustedIntensitySum = 1
+  specLib$psmScore = 1
+  specLib$precApexIntensity = 1
   proteotypicPeptideExport(spectralLibrary = specLib
                            ,targetProteins = c(TB$Proteins, PEPTIDEDF$protein %>% unique())
                            , nbPeptidesPerProtein = 6
@@ -221,6 +224,7 @@ testCreateSpectralLibrary = function(){
 
   stopifnot(SPECTRALLIBRARY$fragmentNb >= 3)
   stopifnot((subset(SPECTRALLIBRARY,SPECTRALLIBRARY$mqResIdx == unique(SPECTRALLIBRARY$mqResIdx)[1])$precMz %>% unique %>% length) == 1)
+  stopifnot(SPECTRALLIBRARY$rankingMetric == SPECTRALLIBRARY$adjustedIntensitySum)
 
   spectralLibrary2 = createSpectralLibrary(TB
                                            , minFragNb= 3
@@ -229,8 +233,11 @@ testCreateSpectralLibrary = function(){
                                            , minBasePeakFraction = 0.1
                                            , ionTypeFilter = c("b")
                                            , includeNL = F
+                                           , rankingMetric = "psmScore"
   )
 
+  # rankingMetric
+  stopifnot(spectralLibrary2$rankingMetric == spectralLibrary2$psmScore)
   # minNbTransitions and maxNbTransitions
   transitionsPerSpec =spectralLibrary2  %>%  split(.$mqResIdx) %>%
     map(~ nrow(.x)) %>% unlist
@@ -348,7 +355,8 @@ if(T){
 pdf(TMPPDF)
 
 plotIRTCalibration(IRTMODEL)
-barplotPeptidesPerProtein( cbind(createLibrarySpectrum(TB[7,]),adjustedIntensitySum = 1 )[1,] )
+barplotPetideCountPerProtein(SPECTRALLIBRARY)
+barplotPeptidesPerProtein( cbind(createLibrarySpectrum(TB[7,]),rankingMetric = 1 )[1,] )
 
 cat("CREATED FILE: ", TMPPDF,"\n")
 dev.off()
@@ -359,6 +367,7 @@ dev.off()
 
 
 
+barplot(table(SPECTRALLIBRARY$protein %>% unique ))
 
 
 

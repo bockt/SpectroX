@@ -2,6 +2,7 @@
 
 export(IRTPEPTIDES)
 export(barplotPeptidesPerProtein)
+export(barplotPetideCountPerProtein)
 export(createComplementaryIsotopeLibrary)
 export(createLibrarySpectrum)
 export(createSpectralLibrary)

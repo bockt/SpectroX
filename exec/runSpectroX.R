@@ -58,18 +58,6 @@ uO = getUserOptions(cmdlineOptions)
 
 #### PARSE PEPPROTLISTFILE
 
-
-
-# if("Peptide" %in% names(targetsDf)){
-#   targets <- unique(as.character(targetsDf$Peptide))
-# }else if("Protein" %in% names(targetsDf)){
-#   targets <- gsub(" *","",unique(as.character(targetsDf$Protein)))
-# }else{
-#   cat("Invalid pepProtListFile format \n")
-#   print(targetsDf)
-# }
-
-
 ##### PARAMS END #####
 
 ### MAIN
@@ -87,7 +75,7 @@ tb = parseMaxQuantMSMS(file = uO$MQRESFILE
                   ,keepBestSpectrumOnly = T
                   ,chargeState = uO$CHARGESTATE
                   ,label=uO$LABEL
-                  ,minPepLength =uO$PEPTIDELENGTHRANGE[1]
+                  ,pepLength =uO$PEPTIDELENGTHRANGE
                   )
 
 keep = rep(T,nrow(tb))
@@ -111,6 +99,7 @@ spectralLibrary = createSpectralLibrary(tb
                       , minBasePeakFraction = uO$MINBASEPEAKFRACTION
                       , ionTypeFilter = uO$IONTYPEFILTER
                       , includeNL = uO$INCLUDENL
+                      ,rankingMetric = uO$RANKINGMETRIC
                       )
 
 # parse protein sequence database
@@ -136,22 +125,22 @@ if(!is.na(uO$FASTAFILE)){
 }
 
 # select top peptide variants (peptide+ ptm ) per protein
-selPetideVariants = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum","isIRT")]%>%
-   unique %>% group_by(protein,peptide,ptm, isIRT) %>% top_n(1,adjustedIntensitySum) %>%
+selPeptideVariants = spectralLibrary[c("protein","peptide","ptm","rankingMetric","isIRT")]%>%
+   unique %>% group_by(protein,peptide,ptm, isIRT) %>% top_n(1,rankingMetric) %>%
    split(.$protein) %>%
    map_df(~ data.frame(peptide=.x$peptide
                        , ptm = .x$ptm
                        , protein = .x$protein
                        , isIRT = .x$isIRT
-                       , adjustedIntensitySum= .x$adjustedIntensitySum
-                       , rank = length(.x$adjustedIntensitySum) - rank(.x$adjustedIntensitySum)+1
+                       , rankingMetric= .x$rankingMetric
+                       , rank = length(.x$rankingMetric) - rank(.x$rankingMetric)+1
    ))
 
 
 
-selPetideVariants = subset(selPetideVariants,rank <= uO$PEPTIDEDPERPROTEN | isIRT )
+selPeptideVariants = subset(selPeptideVariants,rank <= uO$PEPTIDEDPERPROTEN | isIRT )
 # apply peptide ptm filter
-spectralLibrary = spectralLibrary[ paste0(spectralLibrary$peptide,spectralLibrary$ptm) %in% paste0(selPetideVariants$peptide,selPetideVariants$ptm),]
+spectralLibrary = spectralLibrary[ paste0(spectralLibrary$peptide,spectralLibrary$ptm) %in% paste0(selPeptideVariants$peptide,selPeptideVariants$ptm),]
 
 ### MAIN END
 
@@ -162,21 +151,27 @@ pdf(uO$PDFFILE)
 parDefault = par()
 plotIRTCalibration(irtModel)
 
-
-
-
+# barplot peptide count per protien
+barplotPetideCountPerProtein(spectralLibrary)
 #  plot adj. intensity vs peptide (per protein)
 par(mfrow=c(2,2), mar=c(5,5,5,5))
 
-X = spectralLibrary[c("protein","peptide","ptm","adjustedIntensitySum","precCharge")] %>%
+X = spectralLibrary[c("protein","peptide","ptm","rankingMetric","precCharge")] %>%
   split(.$protein) %>%
-  map(~  barplotPeptidesPerProtein(.x %>% unique , ptmRegExp = uO$PTMREGEXP))
+  map(~  barplotPeptidesPerProtein(.x %>% unique , ptmRegExp = uO$PTMREGEXP, rankingMetric=uO$RANKINGMETRIC))
+
 
 cat("CREATED FILE: ", uO$PDFFILE,"\n")
 graphics.off()
 
 # xls
-if(uO$PPEXPORT & exists("theoPeptides")){
+if(uO$PPEXPORT ){
+
+  if(!exists("theoPeptides")){
+    theoPeptides = NA
+    #warning("No predicted peptides added")
+  }
+
   # proteotypic peptide selection
   proteotypicPeptideExport(spectralLibrary = spectralLibrary
                            ,targetProteins = uO$TARGETPROTEINS

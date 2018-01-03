@@ -5,7 +5,7 @@
 \title{plot adj. intensity vs peptide (per protein) barplot}
 \usage{
 barplotPeptidesPerProtein(df, ptmRegExp = NA, pepLenTrunc = 12,
-  pepLabCex = 0.7, ...)
+  pepLabCex = 0.7, rankingMetric = "rankingMetric", ...)
 }
 \arguments{
 \item{df}{data.frame}
@@ -15,6 +15,8 @@ barplotPeptidesPerProtein(df, ptmRegExp = NA, pepLenTrunc = 12,
 \item{pepLenTrunc}{integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..}
 
 \item{pepLabCex}{default 0.7}
+
+\item{rankingMetric}{character}
 }
 \description{
 plot adj. intensity vs peptide (per protein) barplot
