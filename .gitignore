@@ -2,5 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-inst/testData/*
+inst/testData/testProj1/*
+inst/testData/testProj2/*
 
