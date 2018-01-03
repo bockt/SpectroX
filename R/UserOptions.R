@@ -47,8 +47,8 @@ getCMDLineOptions = function(version=version){
     make_option(c("-f", "--fastaFile"), type="character", default=NA,
                 help="I/O: protein database .fasta file (only relevant for 'Proteotypic peptide selection' workflow)"
     ),
-    make_option(c("-o", "--outputDir"), type="character", default="",
-                help="I/O:  Results Output Directory [default ./]"
+    make_option(c("-o", "--outputDir"), type="character", default="./",
+                help="I/O:  Results Output Directory [default %default]"
     ),
 
     make_option(c("-l", "--resultsFileLabel"), type="character", default="spectroXInput",

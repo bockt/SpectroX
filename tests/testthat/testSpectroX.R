@@ -12,13 +12,13 @@ library(seqinr)
 #source("./R/SpectroX.R")
 
 TESTFILE = "../../inst/testData/msms_test.txt"
-TARGETSFILE = "../../inst/testData/proteins_vibrio.txt"
+TARGETSFILE = "../../inst/testData/proteins_acs.txt"
 TMPXLS = paste0(tempdir(),"/tmp.xls")
 TMPPDF = paste0(tempdir(),"/tmp.pdf")
 
 TB = parseMaxQuantMSMS(TESTFILE)
 IRTMODEL = getIRTModel(subset(TB, isIRT))
-UPFASTAFILE = "../../inst/testData/uniprot_test.fasta"
+UPFASTAFILE = "../../inst/testData/protein_db1.fasta"
 ### read protein db
 UPPROTEINDB <- read.fasta(UPFASTAFILE,seqtype = "AA",as.string = TRUE, set.attributes = FALSE)
 PEPTIDEDF = digestProteome(UPPROTEINDB, peptideLengthRange = c(6,21), dispProgressBar = F)
@@ -361,13 +361,6 @@ barplotPeptidesPerProtein( cbind(createLibrarySpectrum(TB[7,]),rankingMetric = 1
 cat("CREATED FILE: ", TMPPDF,"\n")
 dev.off()
 
-
-# file = TARGETSFILE
-# file = "/Users/ahrnee-adm/dev/R/workspace/SpectroX/inst/proteins_vibrio.txt"
-
-
-
-barplot(table(SPECTRALLIBRARY$protein %>% unique ))
 
 
 
