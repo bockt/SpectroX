@@ -629,7 +629,6 @@ proteotypicPeptideExport = function(spectralLibrary
 
 #' plot adj. intensity vs peptide (per protein) barplot
 #' @param df data.frame
-#' @param ptmRegExp default NA, higliht modified peptides in red (do not highlight labels)
 #' @param pepLenTrunc integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
 #' @param pepLabCex default 0.7
 #' @param rankingMetric character
@@ -637,11 +636,10 @@ proteotypicPeptideExport = function(spectralLibrary
 #' @note  No note
 #' @references NA
 #' @examples print("No examples")
-barplotPeptidesPerProtein = function(df, ptmRegExp=NA,pepLenTrunc=12,pepLabCex=0.7,rankingMetric="rankingMetric",...){
+barplotPeptidesPerProtein = function(df, pepLenTrunc=12,pepLabCex=0.7,rankingMetric="rankingMetric",...){
 
   # display modified peptide in red
-  col = "blue"
-  if(!is.na(ptmRegExp)) col = c("blue","red")[grepl(ptmRegExp,df$ptm)+1]
+  col = c("red","blue")[((df$ptm == "Unmodified") | (df$ptm == "Lys8") | (df$ptm == "Arg10")) +1]
 
   # avoid log(0) issue
   df$rankingMetric = df$rankingMetric +1

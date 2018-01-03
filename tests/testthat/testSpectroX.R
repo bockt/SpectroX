@@ -317,7 +317,7 @@ testParseTargetsFile = function(){
   cat("--- testParseTargetsFile: --- \n")
 
   ret = parseTargetsFile(TARGETSFILE)
-  stopifnot(length(ret$proteins) == 19 )
+  stopifnot(length(ret$proteins) == 5 )
   stopifnot(is.na(ret$peptides))
 
   cat("--- testParseTargetsFile:  PASS ALL TEST --- \n")
