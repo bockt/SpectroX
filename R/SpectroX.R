@@ -627,7 +627,7 @@ proteotypicPeptideExport = function(spectralLibrary
 }
 
 
-#' plot adj. intensity vs peptide (per protein) barplot
+#' plot ranking metric vs peptide (per protein) barplot
 #' @param df data.frame
 #' @param pepLenTrunc integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
 #' @param pepLabCex default 0.7
@@ -885,9 +885,8 @@ parseTargetsFile = function(file){
   return(ret)
 }
 
-#' plot adj. intensity vs peptide (per protein) barplot
+#' plot peptide count per protein
 #' @param spectralLibrary data.frame
-#' @param ptmRegExp default NA, higliht modified peptides in red (do not highlight labels)
 #' @param acLenTrunc integer default 12 "SOMEVERYLONGAC" -> "SOMEVERY.."
 #' @param protLabCex default 0.9
 #' @export
