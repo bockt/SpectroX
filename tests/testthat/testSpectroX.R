@@ -8,7 +8,7 @@ library(MASS)
 library(seqinr)
 
 
-#setwd("/Users/ahrnee-adm/dev/R/workspace/SpectroX")
+#setwd("/Users/ahrnee-adm/dev/R/workspace/SpectroX/tests/testthat/")
 #source("./R/SpectroX.R")
 
 TESTFILE = "../../inst/testData/msms_test.txt"
@@ -359,7 +359,12 @@ barplotPetideCountPerProtein(SPECTRALLIBRARY)
 barplotPeptidesPerProtein( cbind(createLibrarySpectrum(TB[7,]),rankingMetric = 1 )[1,] )
 
 cat("CREATED FILE: ", TMPPDF,"\n")
+
+
 dev.off()
+
+
+
 
 
 

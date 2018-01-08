@@ -627,45 +627,7 @@ proteotypicPeptideExport = function(spectralLibrary
 }
 
 
-#' plot ranking metric vs peptide (per protein) barplot
-#' @param df data.frame
-#' @param pepLenTrunc integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
-#' @param pepLabCex default 0.7
-#' @param rankingMetric character
-#' @export
-#' @note  No note
-#' @references NA
-#' @examples print("No examples")
-barplotPeptidesPerProtein = function(df, pepLenTrunc=12,pepLabCex=0.7,rankingMetric="rankingMetric",...){
 
-  # display modified peptide in red
-  col = c("red","blue")[((df$ptm == "Unmodified") | (df$ptm == "Lys8") | (df$ptm == "Arg10")) +1]
-
-  # avoid log(0) issue
-  df$rankingMetric = df$rankingMetric +1
-
-  # order by intensity decreasing L-R
-  df = arrange(df,-rankingMetric)
-  bp =  barplot(df$rankingMetric %>% log10
-                , main = df$protein[1]
-                , xaxt = "n"
-                #, ylab="Adj. Fragment Int. Sum\n log10"
-                ,ylab = paste0(rankingMetric,"\n log10")
-                ,col=col
-                ,...
-  )
-
-  # truncate labels AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
-  df$peptide %<>% as.character
-  sel = nchar( df$peptide) > pepLenTrunc
-  df$peptide[sel] = paste0(substr( df$peptide,1,pepLenTrunc), sep="..")[sel ]
-  df$peptide = paste0(df$peptide,"/",df$precCharge)
-  ### 35 degree labels
-  axis(1, labels = FALSE,tick=F)
-  text(bp , par("usr")[3], srt=35, adj = 1.1,
-       labels =df$peptide, xpd = TRUE ,cex=pepLabCex)
-
-}
 
 #' Create Spectral Library
 #' @param tb tibble maxQuant spectrum level search results
@@ -921,4 +883,44 @@ barplotPetideCountPerProtein = function(spectralLibrary, protLabCex=0.9, acLenTr
     axis(1, labels = TRUE,tick=T, cex.axis=cex.axis)
 
   }
+}
+
+#' plot ranking metric vs peptide (per protein) barplot
+#' @param df data.frame
+#' @param pepLenTrunc integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
+#' @param pepLabCex default 0.7
+#' @param rankingMetric character
+#' @export
+#' @note  No note
+#' @references NA
+#' @examples print("No examples")
+barplotPeptidesPerProtein = function(df, pepLenTrunc=12,pepLabCex=0.7,rankingMetric="rankingMetric",...){
+
+  # display modified peptide in red
+  col = c("red","blue")[((df$ptm == "Unmodified") | (df$ptm == "Lys8") | (df$ptm == "Arg10")) +1]
+
+  # avoid log(0) issue
+  df$rankingMetric = df$rankingMetric +1
+
+  # order by intensity decreasing L-R
+  df = arrange(df,-rankingMetric)
+  bp =  barplot(df$rankingMetric %>% log10
+                , main = df$protein[1]
+                , xaxt = "n"
+                #, ylab="Adj. Fragment Int. Sum\n log10"
+                ,ylab = paste0(rankingMetric,"\n log10")
+                ,col=col
+                ,...
+  )
+
+  # truncate labels AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
+  df$peptide %<>% as.character
+  sel = nchar( df$peptide) > pepLenTrunc
+  df$peptide[sel] = paste0(substr( df$peptide,1,pepLenTrunc), sep="..")[sel ]
+  df$peptide = paste0(df$peptide,"/",df$precCharge)
+  ### 35 degree labels
+  axis(1, labels = FALSE,tick=F)
+  text(bp , par("usr")[3], srt=35, adj = 1.1,
+       labels =df$peptide, xpd = TRUE ,cex=pepLabCex)
+
 }

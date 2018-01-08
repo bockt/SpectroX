@@ -151,14 +151,54 @@ pdf(uO$PDFFILE)
 parDefault = par()
 plotIRTCalibration(irtModel)
 
-# barplot peptide count per protien
+# barplot peptide count per protein
 barplotPetideCountPerProtein(spectralLibrary)
+
+
+spectralLibrary$ionTypeTag =  with(spectralLibrary,  paste0(ionType
+                                  ,ifelse(isNL,"NL","")
+                                  ,lapply(spectralLibrary$charge, function(t){paste(rep("+",t), collapse="")} ) %>% unlist
+))
+
+# charge state distrib
+psmPerCharge = group_by(spectralLibrary, precCharge)  %>% summarise(nbPSM = length(unique(mqResIdx)) )
+barplot(psmPerCharge$nbPSM
+        ,names = psmPerCharge$precCharge
+        , col = "blue"
+        , ylab ="PSM Count"
+        , cex.axis = 1.5
+        , cex.names =1.25
+        , cex.lab =1.5
+        ,xlab  = "Precursor Charge"
+)
+
+# plot fragment type distribution
+# precursor charge states with at least 5 psms
+#charges = (group_by(spectralLibrary,precCharge) %>% summarise(count = length(precCharge) ) %>% filter(count > 10 ))$precCharge
+charges = subset(psmPerCharge, nbPSM > 5 )$precCharge
+par(mfrow = c( round(length(charges) / 2),2) )
+X = subset(spectralLibrary, precCharge %in% charges ) %>%
+  split(.$precCharge) %>%
+  # map(~  barplotPeptidesPerProtein(.x %>% unique , ptmRegExp = uO$PTMREGEXP, rankingMetric=uO$RANKINGMETRIC))
+  map(~  barplot(100* table(.x$ionTypeTag) / nrow(.x), main = paste0("Precursor Charge ",.x$precCharge[1],"+" )
+                 , col = "blue"
+                 , ylab ="%"
+                 , cex.axis = 1.5
+                 , cex.names =1.25
+                 , cex.lab =1.5
+                 ,las=2
+  )
+
+  )
+par(mfrow = c(1,1) )
+
+
 #  plot adj. intensity vs peptide (per protein)
 par(mfrow=c(2,2), mar=c(5,5,5,5))
-
 X = spectralLibrary[c("protein","peptide","ptm","rankingMetric","precCharge")] %>%
   split(.$protein) %>%
-  map(~  barplotPeptidesPerProtein(.x %>% unique , ptmRegExp = uO$PTMREGEXP, rankingMetric=uO$RANKINGMETRIC))
+  map(~  barplotPeptidesPerProtein(.x %>% unique
+                                   , rankingMetric=uO$RANKINGMETRIC))
 
 
 cat("CREATED FILE: ", uO$PDFFILE,"\n")
