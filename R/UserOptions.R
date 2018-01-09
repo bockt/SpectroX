@@ -68,7 +68,7 @@ getCMDLineOptions = function(version=version){
     ),
 
     make_option(c("--PModificationRegEx"), type="character", default=NA,
-                help="PEPTIDE: --PM Allowed PTMs. E.g. 'Oxid'[default %default]"
+                help="PEPTIDE: --PM Allowed PTMs. E.g. \"Oxid|Ac\" -> Oxidation or Acetylation [default %default]"
     ),
 
     make_option(c("--PEpCutoff"), type="double", default=0.05,

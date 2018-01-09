@@ -855,13 +855,12 @@ parseTargetsFile = function(file){
 #' @note  No note
 #' @references NA
 #' @examples print("No examples")
-barplotPetideCountPerProtein = function(spectralLibrary, protLabCex=0.9, acLenTrunc=12, col = "blue",cex.axis = 1.25, cex.lab = 1.25 , ... ){
+barplotPetideCountPerProtein = function(spectralLibrary, protLabCex=0.9, acLenTrunc=12, col = "blue" , ... ){
   pepPerProt = (spectralLibrary[c("protein","peptide","ptm") ] %>% unique)[,"protein"] %>%table %>% sort(.,decreasing = T)
   protLab =names(pepPerProt)
 
   if(length(protLab) < 30){
-    bp =barplot(pepPerProt,las=2, xaxt="n", ylab = "Unique Peptide Count", col =col,cex.axis=cex.axis,cex.lab=cex.lab,...)
-
+    bp =barplot(pepPerProt,las=2, xaxt="n", ylab = "Unique Peptide Count", col =col,...)
 
     axis(1, labels = FALSE,tick=F)
     # truncate labels "SOMEVERYLONGAC" -> "SOMEVERY.."
@@ -874,13 +873,14 @@ barplotPetideCountPerProtein = function(spectralLibrary, protLabCex=0.9, acLenTr
     #axis(1, labels = TRUE,tick=T, cex.axis=cex.axis)
     #mtext("Protein",side =1, line=3, cex=cex.lab)
     h = hist(pepPerProt,breaks =  1:max(pepPerProt)
-         ,cex.axis=cex.axis
-         ,cex.lab=cex.lab
+         #,cex.axis=cex.axis
+         #,cex.lab=cex.lab
          ,xlab = "Unique Peptide Count Per Protein"
          ,col=col
          ,main=""
+         ,...
          )
-    axis(1, labels = TRUE,tick=T, cex.axis=cex.axis)
+    axis(1, labels = TRUE,tick=T,...)
 
   }
 }

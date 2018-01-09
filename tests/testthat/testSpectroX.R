@@ -362,10 +362,10 @@ cat("CREATED FILE: ", TMPPDF,"\n")
 
 
 dev.off()
-
-
-
-
-
-
+#
+# spectralLibrary = SPECTRALLIBRARY
+#
+# barplot((group_by(spectralLibrary,mqResIdx) %>% count())$n %>% table )
+#
+# subset(spectralLibrary, mqResIdx == "19429" )ceil
 
