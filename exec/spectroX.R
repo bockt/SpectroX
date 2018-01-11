@@ -206,10 +206,18 @@ par(mfrow = c(1,1), cex.lab = 1, cex.axis =1 )
 
 #  plot adj. intensity vs peptide (per protein)
 par(mfrow=c(2,2), mar=c(5,5,5,5))
+
+# plot ptm color legend
+ptmCol = getPTMColors(levels(spectralLibrary$ptm) )
+plot(0,0,type="n", xaxt="n", yaxt="n", axes=FALSE,xlab="",ylab="")
+legend("center",fill =ptmCol$col, legend=rownames(ptmCol),cex=0.7, bty="n")
+
+
 X = spectralLibrary[c("protein","peptide","ptm","rankingMetric","precCharge")] %>%
   split(.$protein) %>%
   map(~  barplotPeptidesPerProtein(.x %>% unique
-                                   , rankingMetric=uO$RANKINGMETRIC))
+                                   , rankingMetric=uO$RANKINGMETRIC
+                                   ,ptmCol=ptmCol))
 
 
 cat("CREATED FILE: ", uO$PDFFILE,"\n")
@@ -234,6 +242,8 @@ if(uO$PPEXPORT ){
 
 if(uO$COMPLEMENTARYISOTOPEASSAYS){
   spectralLibrary = rbind(spectralLibrary, subset(createComplementaryIsotopeLibrary(spectralLibrary), !(isIRT & isHeavy)  ))
+  # group light heavy
+  spectralLibrary =arrange(rbind(spectralLibrary,createComplementaryIsotopeLibrary(spectralLibrary)),mqResIdx,precMz)
 }
 
 if(uO$SPECTRODIVEEXPORT){

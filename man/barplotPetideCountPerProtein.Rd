@@ -2,10 +2,10 @@
 % Please edit documentation in R/SpectroX.R
 \name{barplotPetideCountPerProtein}
 \alias{barplotPetideCountPerProtein}
-\title{plot adj. intensity vs peptide (per protein) barplot}
+\title{plot peptide count per protein}
 \usage{
 barplotPetideCountPerProtein(spectralLibrary, protLabCex = 0.9,
-  acLenTrunc = 12, col = "blue", cex.axis = 1.25, cex.lab = 1.25, ...)
+  acLenTrunc = 12, col = "blue", ...)
 }
 \arguments{
 \item{spectralLibrary}{data.frame}
@@ -13,11 +13,9 @@ barplotPetideCountPerProtein(spectralLibrary, protLabCex = 0.9,
 \item{protLabCex}{default 0.9}
 
 \item{acLenTrunc}{integer default 12 "SOMEVERYLONGAC" -> "SOMEVERY.."}
-
-\item{ptmRegExp}{default NA, higliht modified peptides in red (do not highlight labels)}
 }
 \description{
-plot adj. intensity vs peptide (per protein) barplot
+plot peptide count per protein
 }
 \note{
 No note

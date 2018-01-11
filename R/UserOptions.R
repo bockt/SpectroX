@@ -318,7 +318,7 @@ getUserOptions = function(cmdlineOptions){
   if(sum(uO[grepl("EXPORT$", names(uO))] %>% unlist ) == 0 )stop("Invalid EXportFormats: ",cmdlineOptions$EXportFormats,"\n")
 
 
-  uO$XLSFILE =  paste0(uO$OUTDIR,"/", cmdlineOptions$resultsFileLabel,".xls")
+  uO$XLSFILE =  paste0(uO$OUTDIR,"/", cmdlineOptions$resultsFileLabel,".tsv")
   uO$PDFFILE =  paste0(uO$OUTDIR,"/", cmdlineOptions$resultsFileLabel,".pdf")
 
   uO$VERBOSE = cmdlineOptions$verbose

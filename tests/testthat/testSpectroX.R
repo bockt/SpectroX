@@ -8,7 +8,7 @@ library(MASS)
 library(seqinr)
 
 
-#setwd("/Users/ahrnee-adm/dev/R/workspace/SpectroX/tests/testthat/")
+setwd("/Users/ahrnee-adm/dev/R/workspace/SpectroX/tests/testthat/")
 #source("./R/SpectroX.R")
 
 TESTFILE = "../../inst/testData/msms_test.txt"
@@ -324,6 +324,17 @@ testParseTargetsFile = function(){
 
 }
 
+testGetPTMColors = function(){
+
+  cat("--- testGetPTMColors: --- \n")
+  ptmCol = getPTMColors(levels(SPECTRALLIBRARY$ptm))
+  stopifnot(dim(ptmCol) == c(3,1) )
+  stopifnot(ptmCol["Unmodified", ] == 4)
+  cat("--- testGetPTMColors:  PASS ALL TEST --- \n")
+}
+
+
+
 #run tests
 
 if(T){
@@ -340,6 +351,8 @@ if(T){
   testDigestProteome()
   testCreateSpectralLibrary()
   testCreateComplementaryIsotopeLibrary()
+
+  testGetPTMColors()
 
   # exports
   testProteotypicPeptideExport()
@@ -362,10 +375,5 @@ cat("CREATED FILE: ", TMPPDF,"\n")
 
 
 dev.off()
-#
-# spectralLibrary = SPECTRALLIBRARY
-#
-# barplot((group_by(spectralLibrary,mqResIdx) %>% count())$n %>% table )
-#
-# subset(spectralLibrary, mqResIdx == "19429" )ceil
 
+#table(SPECTRALLIBRARY$ptm)

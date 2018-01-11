@@ -2,24 +2,25 @@
 % Please edit documentation in R/SpectroX.R
 \name{barplotPeptidesPerProtein}
 \alias{barplotPeptidesPerProtein}
-\title{plot adj. intensity vs peptide (per protein) barplot}
+\title{plot ranking metric vs peptide (per protein) barplot}
 \usage{
-barplotPeptidesPerProtein(df, ptmRegExp = NA, pepLenTrunc = 12,
-  pepLabCex = 0.7, rankingMetric = "rankingMetric", ...)
+barplotPeptidesPerProtein(df, pepLenTrunc = 12, pepLabCex = 0.7,
+  rankingMetric = "rankingMetric", ptmCol = getPTMColors(levels(df$ptm)),
+  ...)
 }
 \arguments{
 \item{df}{data.frame}
-
-\item{ptmRegExp}{default NA, higliht modified peptides in red (do not highlight labels)}
 
 \item{pepLenTrunc}{integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..}
 
 \item{pepLabCex}{default 0.7}
 
 \item{rankingMetric}{character}
+
+\item{ptmCol}{data.frame row.names: ptm col:col}
 }
 \description{
-plot adj. intensity vs peptide (per protein) barplot
+plot ranking metric vs peptide (per protein) barplot
 }
 \note{
 No note

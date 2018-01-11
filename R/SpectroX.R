@@ -890,14 +890,12 @@ barplotPetideCountPerProtein = function(spectralLibrary, protLabCex=0.9, acLenTr
 #' @param pepLenTrunc integer AFADAMEVIPSTLAENAGLNPISTVTELR -> AFADAMEVIPSTLAE..
 #' @param pepLabCex default 0.7
 #' @param rankingMetric character
+#' @param ptmCol data.frame row.names: ptm col:col
 #' @export
 #' @note  No note
 #' @references NA
 #' @examples print("No examples")
-barplotPeptidesPerProtein = function(df, pepLenTrunc=12,pepLabCex=0.7,rankingMetric="rankingMetric",...){
-
-  # display modified peptide in red
-  col = c("red","blue")[((df$ptm == "Unmodified") | (df$ptm == "Lys8") | (df$ptm == "Arg10")) +1]
+barplotPeptidesPerProtein = function(df, pepLenTrunc=12,pepLabCex=0.7,rankingMetric="rankingMetric",ptmCol=getPTMColors(levels(df$ptm)),  ...){
 
   # avoid log(0) issue
   df$rankingMetric = df$rankingMetric +1
@@ -909,7 +907,7 @@ barplotPeptidesPerProtein = function(df, pepLenTrunc=12,pepLabCex=0.7,rankingMet
                 , xaxt = "n"
                 #, ylab="Adj. Fragment Int. Sum\n log10"
                 ,ylab = paste0(rankingMetric,"\n log10")
-                ,col=col
+                ,col=ptmCol[match(df$ptm,rownames(ptmCol)) ,]
                 ,...
   )
 
@@ -922,5 +920,24 @@ barplotPeptidesPerProtein = function(df, pepLenTrunc=12,pepLabCex=0.7,rankingMet
   axis(1, labels = FALSE,tick=F)
   text(bp , par("usr")[3], srt=35, adj = 1.1,
        labels =df$peptide, xpd = TRUE ,cex=pepLabCex)
+
+}
+
+#' assign colors to ptms
+#' @param ptms vector
+#' @return data.frame
+#' @export
+#' @note  No note
+#' @references NA
+#' @examples print("No examples")
+getPTMColors = function(ptms){
+
+  #set ptm colors
+  ptmCol = data.frame(row.names=ptms)
+  ptmCol$col = rep(NA,nrow(ptmCol))
+  if("Unmodified" %in% rownames(ptmCol) ) ptmCol["Unmodified",] = 4
+  ptmCol["Unmodified" != rownames(ptmCol), ] = c(1:3,5:100)[1:sum("Unmodified" != rownames(ptmCol))]
+
+  return(ptmCol)
 
 }
