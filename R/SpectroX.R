@@ -281,9 +281,14 @@ getIRTModel <- function(tb){
 
   irtDF <- data.frame(peptide = tb$Sequence,rt=tb$`Retention time`,irtRef= IRTPEPTIDES[ match( tb$Sequence , rownames(IRTPEPTIDES)),] ) %>% na.omit
 
+  ret = list()
+  ret$fit = NULL
+  ret$irtPeptides = irtDF
+
   ### require at least 3 identified irt peptides
   if(length(unique(irtDF$peptide)) < 3){
-    stop("Not enough irt peptides detected")
+    cat("WARN: Not enough iRT peptides detected to estimate iRT times\n")
+    return(ret)
   }
 
   ret = list()
@@ -304,7 +309,7 @@ getIRTModel <- function(tb){
 #' @references Using iRT, a normalized retention time for more targeted measurement of peptides, Escher et al. (2012), \url{http://www.ncbi.nlm.nih.gov/pubmed/22577012}
 #' @examples print("No examples")
 getEmpiricalIRT <- function(tb,fit){
-  return(predict(fit, newdata=cbind(tb,rt = tb$`Retention time` )))
+    return(predict(fit, newdata=cbind(tb,rt = tb$`Retention time` )))
 }
 
 #' Plot IRT calibration curve

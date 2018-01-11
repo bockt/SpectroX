@@ -86,10 +86,21 @@ if(is.na(uO$TARGETPEPTIDES)[1]){
   if(!is.na(uO$INVALIDPEPSEQ)) keep =  keep & !grepl(uO$INVALIDPEPSEQ, tb$Sequence)
   tb = subset(tb, keep | isIRT)
 }
+# stop if all psms are filtered out
+if(nrow(tb) == 0 )stop("0 PSMs passing filtering criteria")
 
 # predict iRT
 irtModel = getIRTModel(tb)
-tb$iRT = getEmpiricalIRT(tb,irtModel$fit)
+if(is.null(irtModel$fit)){ # not enough iRT
+  tb$iRT = rep(NA,nrow(tb))
+}else{
+  tb$iRT = getEmpiricalIRT(tb,irtModel$fit)
+}
+
+if(uO$VERBOSE){
+  cat("NB PSMs: ",nrow(tb),"\n")
+}
+
 
 # create spectral library
 spectralLibrary = createSpectralLibrary(tb
@@ -150,7 +161,7 @@ spectralLibrary = spectralLibrary[ paste0(spectralLibrary$peptide,spectralLibrar
 pdf(uO$PDFFILE )
 parDefault = par()
 par(cex.axis = 1.3, cex.lab =1.3, mfrow=c(2,2))
-plotIRTCalibration(irtModel)
+if(!is.null(irtModel$fit)) plotIRTCalibration(irtModel)
 
 # barplot peptide count per protein
 barplotPetideCountPerProtein(spectralLibrary)
